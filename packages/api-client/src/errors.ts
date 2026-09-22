@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { ApiErrorResponse } from './types.js';
 
 export class ApiClientError extends Error {
@@ -71,5 +70,10 @@ export async function buildErrorFromResponse(response: Response, correlationId?:
 }
 
 export function createCorrelationId(): string {
-  return randomUUID();
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  // Trace identifiers only: the fallback is not used for tokens or secrets.
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+    const value = Math.floor(Math.random() * 16);
+    return (char === 'x' ? value : (value & 3) | 8).toString(16);
+  });
 }

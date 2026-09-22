@@ -4,7 +4,7 @@
  */
 
 export interface ApiClientConfig {
-  readonly baseUrl: string;
+  readonly baseUrl: string | (() => string);
   readonly defaultTimeoutMs?: number;
   readonly getAccessToken?: () => Promise<string | null> | string | null;
   readonly onRefresh?: () => Promise<string | null>;

@@ -55,7 +55,8 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     else reqSignal?.addEventListener('abort', () => controller.abort(), { once: true });
 
     const correlationId = headers['x-correlation-id'];
-    const url = `${config.baseUrl}${req.path}${buildQueryString(req.query)}`;
+    const baseUrl = typeof config.baseUrl === 'function' ? config.baseUrl() : config.baseUrl;
+    const url = `${baseUrl.replace(/\/+$/, '')}${req.path}${buildQueryString(req.query)}`;
 
     const attempt = async (): Promise<Response> => {
       return fetch(url, {

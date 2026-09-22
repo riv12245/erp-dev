@@ -1,9 +1,12 @@
 import { create } from 'zustand';
+import { authClient } from '../services/api-config';
+import { useTenantStore } from './tenant-store';
+import { usePermissionStore } from './permission-store';
 
 export interface AuthUser {
-  readonly id?: string;
-  readonly email?: string;
-  readonly name?: string;
+  readonly id: string;
+  readonly email: string;
+  readonly name: string;
 }
 
 interface AuthState {
@@ -17,31 +20,47 @@ interface AuthState {
   readonly logout: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  accessToken: null,
-  tenantId: null,
-  isAuthenticated: false,
-  isLoading: false,
-  error: null,
+interface LoginResult {
+  readonly accessToken: string;
+  readonly user: { readonly userId: string; readonly email: string };
+}
 
-  login: async (email: string, password: string, tenantId: string) => {
-    set({ isLoading: true, error: null, user: null, accessToken: null, tenantId: null, isAuthenticated: false });
+// Invalidate in-flight logins on logout or a newer login attempt.
+let generation = 0;
+const emptySession = { user: null, accessToken: null, tenantId: null, isAuthenticated: false, isLoading: false, error: null };
+function clearContext(): void {
+  useTenantStore.getState().clearTenant();
+  usePermissionStore.getState().clear();
+}
+
+export const useAuthStore = create<AuthState>((set) => ({
+  ...emptySession,
+  login: async (email, password, tenantId) => {
+    const current = ++generation;
+    clearContext();
+    set({ ...emptySession, isLoading: true });
     try {
-      const response = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-tenant-id': tenantId.trim() },
-        body: JSON.stringify({ email, password }),
+      const tenant = tenantId.trim();
+      if (!tenant) throw new Error('Tenant is required');
+      const payload = await authClient.post<LoginResult>('/api/v1/auth/login', { email, password }, {
+        headers: { 'x-tenant-id': tenant },
       });
-      if (!response.ok) throw new Error('Login failed');
-      const payload = (await response.json()) as { data: { accessToken: string; user: { userId: string; email: string } } };
-      set({ accessToken: payload.data.accessToken, tenantId: tenantId.trim(), user: { id: payload.data.user.userId, email: payload.data.user.email }, isAuthenticated: true, isLoading: false });
+      if (current !== generation) return false;
+      if (!payload?.accessToken || !payload.user?.userId || !payload.user?.email) throw new Error('Invalid login response');
+      useTenantStore.getState().setTenantId(tenant);
+      set({
+        accessToken: payload.accessToken, tenantId: tenant, isAuthenticated: true, isLoading: false,
+        user: { id: payload.user.userId, email: payload.user.email, name: payload.user.email },
+      });
       return true;
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Login failed', isLoading: false });
+      if (current === generation) set({ ...emptySession, error: error instanceof Error ? error.message : 'Login failed' });
       return false;
     }
   },
-
-  logout: () => set({ user: null, accessToken: null, tenantId: null, isAuthenticated: false, error: null }),
+  logout: () => {
+    generation++;
+    clearContext();
+    set(emptySession);
+  },
 }));

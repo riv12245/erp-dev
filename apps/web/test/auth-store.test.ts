@@ -24,6 +24,17 @@ describe.each([['web', web], ['mobile', mobile]] as const)('%s login contract', 
     expect(store.getState().isAuthenticated).toBe(false);
     expect(store.getState().accessToken).toBeNull();
   });
+  it('does not restore a session when logout happens during login', async () => {
+    let finish!: (response: Response) => void;
+    vi.stubGlobal('fetch', () => new Promise<Response>((resolve) => { finish = resolve; }));
+    const pending = store.getState().login('user@example.com', 'password', 'tenant-one');
+    await vi.waitFor(() => expect(finish).toBeDefined());
+    store.getState().logout();
+    finish(new Response(JSON.stringify({ data: { accessToken: 'late', user: { userId: 'u', email: 'user@example.com' } } })));
+    expect(await pending).toBe(false);
+    expect(store.getState().isAuthenticated).toBe(false);
+    expect(store.getState().accessToken).toBeNull();
+  });
 });
 
 
@@ -39,8 +50,9 @@ describe('web API tenant context', () => {
     web.setState({ tenantId: 'tenant-two' });
     await apiClient.get('/api/v1/auth/me');
     web.getState().logout();
-    useTenantStore.getState().clearTenant();
+    useTenantStore.getState().setTenantId('stale-tenant');
     await apiClient.get('/health');
     expect(seen).toEqual(['tenant-one', 'tenant-two', null]);
+    useTenantStore.getState().clearTenant();
   });
 });
