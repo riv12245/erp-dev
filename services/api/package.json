@@ -1,0 +1,44 @@
+{
+  "name": "@erp/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "node --watch --env-file=.env --import ./src/bootstrap/dns-cloudflare.mjs --import tsx src/bootstrap/start.ts",
+    "start": "node dist/bootstrap/start.js",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run --reporter=verbose",
+    "test:integration": "vitest run test/auth.test.ts test/auth-unit.test.ts test/tenancy.test.ts test/tenant-scoped-repository.test.ts test/master-data.test.ts test/audit.test.ts test/outbox.test.ts",
+    "test:e2e": "vitest run test/core-iam.test.ts test/seed.test.ts test/health.test.ts"
+  },
+  "dependencies": {
+    "@erp/auth": "*",
+    "@erp/permissions": "*",
+    "@erp/validation": "*",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^8.0.0",
+    "mongoose": "^8.9.4"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.2",
+    "mongodb-memory-server": "^10.1.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

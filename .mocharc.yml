@@ -1,0 +1,24 @@
+require:
+  - ts-node/register
+  - mongodb-memory-server/register
+
+timeout: 10000
+exit: true
+recursive: true
+spec:
+  - 'tests/**/*.test.ts'
+
+environment:
+  NODE_ENV: test
+  MONGO_URI: mongodb://localhost:27017/erp_test
+
+globalSetup: ./tests/e2e/setup.ts
+globalTeardown: ./tests/e2e/teardown.ts
+
+reporter: spec
+bail: false
+colors: true
+grep: ''
+invert: false
+maxParallel: 5
+exitOnFirstFail: false

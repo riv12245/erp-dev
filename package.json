@@ -1,0 +1,62 @@
+{
+  "name": "erp-platform",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "dev:api": "turbo run dev --filter=@erp/api",
+    "dev:web": "turbo run dev --filter=@erp/web",
+    "dev:mobile": "turbo run dev --filter=@erp/mobile",
+    "dev:worker": "turbo run dev --filter=@erp/worker",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:unit": "turbo run test:unit",
+    "test:integration": "turbo run test:integration",
+    "test:e2e": "turbo run test:e2e",
+    "test:jest": "jest --config jest.config.base.js",
+    "test:jest:unit": "jest --config jest.config.unit.js",
+    "test:jest:integration": "jest --config jest.config.integration.js",
+    "test:jest:e2e": "jest --config jest.config.e2e.js",
+    "build:api": "turbo run build --filter=@erp/api",
+    "build:web": "turbo run build --filter=@erp/web",
+    "build:mobile": "turbo run build --filter=@erp/mobile",
+    "build:worker": "turbo run build --filter=@erp/worker",
+    "security:audit": "npm audit",
+    "check:architecture": "node scripts/check-architecture.mjs",
+    "check:imports": "node scripts/check-imports.mjs",
+    "check:tenant-scope": "node scripts/check-tenant-scope.mjs",
+    "check": "npm run check:architecture && npm run check:imports && npm run check:tenant-scope && npm run check:openapi",
+    "seed:dev": "node --env-file=services/api/.env --import ./services/api/src/bootstrap/dns-cloudflare.mjs --import tsx scripts/seed-dev.ts",
+    "prepare": "husky",
+    "check:openapi": "node scripts/check-openapi.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.10",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
+    "eslint": "^9.13.0",
+    "@typescript-eslint/parser": "^8.14.0",
+    "@typescript-eslint/eslint-plugin": "^8.14.0",
+    "js-yaml": "^4.1.0"
+  },
+  "overrides": {
+    "mongodb": "6.21.0",
+    "mongoose": {
+      "mongodb": "6.21.0"
+    }
+  },
+  "packageManager": "npm@11.16.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

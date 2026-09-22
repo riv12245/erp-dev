@@ -1,0 +1,135 @@
+{
+  "date": "2026-09-22",
+  "runtime": "Node 24.18.0",
+  "branch": "fix/core-iam-tenancy-audit",
+  "cache": "--force for Turbo gates",
+  "gates": [
+    {
+      "gate": "typecheck",
+      "exitCode": 0,
+      "summary": [
+        "Tasks:    24 successful, 24 total"
+      ]
+    },
+    {
+      "gate": "lint",
+      "exitCode": 0,
+      "summary": [
+        "@erp/validation:lint:   12:3  warning  Unused eslint-disable directive (no problems were reported from 'no-useless-escape')",
+        "Tasks:    23 successful, 23 total"
+      ]
+    },
+    {
+      "gate": "test",
+      "exitCode": 0,
+      "passed": 158,
+      "skipped": 2,
+      "summary": [
+        "Tasks:    18 successful, 18 total"
+      ]
+    },
+    {
+      "gate": "test-unit",
+      "exitCode": 0,
+      "passed": 158,
+      "skipped": 2,
+      "summary": [
+        "Tasks:    18 successful, 18 total"
+      ]
+    },
+    {
+      "gate": "test-integration",
+      "exitCode": 0,
+      "passed": 42,
+      "skipped": 0,
+      "summary": [
+        "Tasks:    11 successful, 11 total"
+      ]
+    },
+    {
+      "gate": "test-e2e",
+      "exitCode": 0,
+      "passed": 27,
+      "skipped": 0,
+      "summary": [
+        "Tasks:    11 successful, 11 total"
+      ]
+    },
+    {
+      "gate": "build",
+      "exitCode": 0,
+      "summary": [
+        "Tasks:    13 successful, 13 total"
+      ]
+    },
+    {
+      "gate": "check",
+      "exitCode": 0,
+      "summary": [
+        "check-architecture: passed (67 api files, 0 warning(s)).",
+        "check-imports: passed (124 files, 0 cycles, 0 god-module warnings).",
+        "check-tenant-scope: passed (0 violations, 0 warnings).",
+        "check-openapi: passed (39 operations, 208 resolved refs; YAML + structural/contract checks, not full schema certification)."
+      ]
+    },
+    {
+      "gate": "check-architecture",
+      "exitCode": 0,
+      "summary": [
+        "check-architecture: passed (67 api files, 0 warning(s))."
+      ]
+    },
+    {
+      "gate": "check-imports",
+      "exitCode": 0,
+      "summary": [
+        "check-imports: passed (124 files, 0 cycles, 0 god-module warnings)."
+      ]
+    },
+    {
+      "gate": "check-tenant-scope",
+      "exitCode": 0,
+      "summary": [
+        "check-tenant-scope: passed (0 violations, 0 warnings)."
+      ]
+    },
+    {
+      "gate": "check-openapi",
+      "exitCode": 0,
+      "summary": [
+        "check-openapi: passed (39 operations, 208 resolved refs; YAML + structural/contract checks, not full schema certification)."
+      ]
+    }
+  ],
+  "legacyJest": {
+    "command": "npm run test:jest:integration",
+    "exitCode": 1,
+    "classification": "preexisting: Jest not installed; legacy tests import absent architecture"
+  },
+  "atlas": {
+    "readiness": 200,
+    "seeds": 2,
+    "demoCounts": {
+      "tenants": 3,
+      "users": 4,
+      "roles": 6,
+      "memberships": 4
+    },
+    "logins": 4,
+    "crossTenantLogin": 403,
+    "tokenHeaderMismatchBothDirections": 403,
+    "salesAudit": 403
+  },
+  "redBeforeGreen": {
+    "core": 11,
+    "repositoryOverride": 1,
+    "seed": 3,
+    "jwtValidation": 1,
+    "concurrentFailures": 1,
+    "runtimeSecurity": 3,
+    "rbacRegex": 1,
+    "auditPagination": 1,
+    "clientContracts": 4,
+    "registrationValidation": 1
+  }
+}
