@@ -28,7 +28,8 @@ function buildHeaders(config: ApiClientConfig, request: ApiRequest): Record<stri
     ...request.headers,
   };
   headers['x-correlation-id'] = request.correlationId ?? config.headers?.['x-correlation-id'] ?? createCorrelationId();
-  if (config.tenantId) headers['x-tenant-id'] = config.tenantId;
+  const tenantId = config.getTenantId ? config.getTenantId() : config.tenantId;
+  if (tenantId) headers['x-tenant-id'] = tenantId;
   if (config.companyId) headers['x-company-id'] = config.companyId;
   if (request.idempotencyKey) headers['idempotency-key'] = request.idempotencyKey;
   return headers;
