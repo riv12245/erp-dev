@@ -107,6 +107,7 @@ jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       redis:
         image: redis:7
@@ -140,7 +141,7 @@ jobs:
         run: npm ci
 
       - name: Run test suites (vitest, turbo)
-        run: npm test
+        run: npm test -- --log-order=stream
         env:
           MONGO_URI: mongodb://127.0.0.1:27017/erp_ci
           MONGODB_URI: mongodb://127.0.0.1:27017/erp_ci

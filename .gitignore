@@ -20,6 +20,8 @@ coverage/
 *.swo
 *~
 android/app/build/
+**/android/app/build/
+**/android/app/.gradle/
 **/android/.gradle/
 **/android/build/
 **/android/local.properties
