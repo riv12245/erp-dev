@@ -6,14 +6,14 @@ import { useTenantStore } from '../store/tenant-store';
 const API_BASE_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
 function resolveTenantId(): string | undefined {
-  return useTenantStore.getState().tenant?.id ?? useTenantStore.getState().tenantId ?? undefined;
+  return useAuthStore.getState().tenantId ?? useTenantStore.getState().tenant?.id ?? useTenantStore.getState().tenantId ?? undefined;
 }
 
 export const apiClient = createApiClient({
   baseUrl: API_BASE_URL,
   defaultTimeoutMs: 30_000,
   getAccessToken: () => useAuthStore.getState().accessToken,
-  tenantId: resolveTenantId(),
+  getTenantId: resolveTenantId,
   onRefresh: async () => null,
 });
 
