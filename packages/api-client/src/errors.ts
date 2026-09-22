@@ -43,13 +43,18 @@ export class ForbiddenError extends ApiClientError {
 /** Normalizes a raw fetch Response / error into the typed error hierarchy. */
 export function normalizeError(error: unknown, correlationId?: string): ApiClientError {
   if (error instanceof ApiClientError) return error;
-  if (error instanceof DOMException && error.name === 'AbortError') {
+  if (isAbortError(error)) {
     return new NetworkError('Request aborted', error);
   }
   if (error instanceof TypeError) {
     return new NetworkError('Network request failed', error);
   }
   return new ApiClientError('UnknownError', 0, error instanceof Error ? error.message : 'Unknown error', 'UNKNOWN_ERROR', undefined, correlationId);
+}
+
+/** React Native fetch aborts do not require a browser DOMException global. */
+export function isAbortError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError';
 }
 
 /** Parses a failed HTTP response body into an ApiClientError when possible. */
