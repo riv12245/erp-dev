@@ -13,7 +13,7 @@ describe('outbox repository', () => {
 
   beforeAll(async () => {
     h = await setupApi();
-    repo = new MongoOutboxRepository(h.conn);
+    repo = new MongoOutboxRepository(h.conn, { retryDelayMs: 0 });
   });
 
   afterAll(async () => {
@@ -36,7 +36,7 @@ describe('outbox repository', () => {
     for (const record of batch) {
       const doc = await Model.findOne({ eventId: record.eventId }).exec();
       expect(doc?.status).toBe('processing');
-      await repo.markPublished(record.eventId);
+      await repo.markPublished(record);
     }
     expect(await repo.countPending()).toBe(0);
   });
@@ -54,8 +54,8 @@ describe('outbox repository', () => {
       status: 'pending',
       attempts: 0,
     });
-    await repo.claimBatch(10, 'test-owner');
-    await repo.markFailed('order-failed-1', 'boom');
+    const [claim] = await repo.claimBatch(10, 'test-owner');
+    await repo.markFailed(claim, 'boom');
 
     const doc = await getOutboxModel(h.conn).findOne({ eventId: 'order-failed-1' }).exec();
     expect(doc?.status).toBe('failed');
@@ -72,14 +72,34 @@ describe('outbox repository', () => {
   it('does not re-emit a claim for already published events', async () => {
     const batch = await repo.claimBatch(50, 'test-owner');
     for (const record of batch) {
-      await repo.markPublished(record.eventId);
+      await repo.markPublished(record);
     }
     expect(await repo.countPending()).toBe(0);
     expect(await repo.claimBatch(50, 'test-owner')).toEqual([]);
   });
+
+  it('claims each event once across concurrent owners', async () => {
+    await getOutboxModel(h.conn).deleteMany({});
+    for (let i = 0; i < 8; i++) await repo.append(eventToOutboxRecord(makeEvent(`concurrent.${i}`)));
+    const batches = await Promise.all([repo.claimBatch(8, 'worker-a'), repo.claimBatch(8, 'worker-b')]);
+    const ids = batches.flat().map((record) => record.eventId);
+    expect(ids).toHaveLength(8);
+    expect(new Set(ids).size).toBe(8);
+  });
 });
 
 describe('event bus + deduplicating outbox publisher', () => {
+  it('retries a failed delegate instead of marking the event as seen', async () => {
+    let attempts = 0;
+    const publisher = new DeduplicatingOutboxPublisher({ publish: async () => {
+      attempts++;
+      if (attempts === 1) throw new Error('temporary');
+    } });
+    const event = createEvent('test.retry', 1, 'a', 'ten', {}, { correlationId: 'c' });
+    await expect(publisher.publish(event)).rejects.toThrow('temporary');
+    await publisher.publish(event);
+    expect(attempts).toBe(2);
+  });
   it('in-memory bus routes events only to matching handlers', async () => {
     const bus = new InMemoryEventBus();
     const calls: string[] = [];

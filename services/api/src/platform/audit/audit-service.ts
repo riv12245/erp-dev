@@ -11,6 +11,7 @@ export class AuditService {
 
   async record(entry: Omit<AuditEntryAttributes, 'auditId' | 'timestamp'>): Promise<void> {
     const Audit = getAuditModel(this.connection);
+    await Audit.init();
     await Audit.create({
       auditId: crypto.randomUUID(),
       timestamp: new Date(),

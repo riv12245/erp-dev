@@ -1,18 +1,12 @@
 import React from 'react';
 import { Card, Button } from '@erp/ui';
 import { StyleSheet, Text, View } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../../hooks/useAuth';
-import type { RootStackParamList } from '../../app/App';
-
-type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
-
-export function DashboardScreen({ navigation }: Props): React.JSX.Element {
+export function DashboardScreen(): React.JSX.Element {
   const { user, logout } = useAuth();
 
   const handleLogout = () => {
     logout();
-    navigation.navigate('Login');
   };
 
   return (

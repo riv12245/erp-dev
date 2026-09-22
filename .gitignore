@@ -1,4 +1,5 @@
 node_modules/
+*.tsbuildinfo
 dist/
 .next/
 .env
@@ -19,6 +20,14 @@ coverage/
 *.swo
 *~
 android/app/build/
+**/android/app/build/
+**/android/app/.gradle/
+**/android/.gradle/
+**/android/build/
+**/android/local.properties
+**/android/.cxx/
+**/android/app/.cxx/
+**/android/app/debug.keystore
 android/app/.gradle/
 android/app/cache/
 ios/Pods/

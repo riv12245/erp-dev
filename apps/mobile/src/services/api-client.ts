@@ -1,13 +1,12 @@
 import { useAuthStore } from '../store/auth-store';
-import { useTenantStore } from '../store/tenant-store';
+import { getApiBaseUrl } from './api-config';
 import { createApiClient } from '@erp/api-client';
 
 export const apiClient = createApiClient({
-  baseUrl: 'http://localhost:3000',
+  baseUrl: getApiBaseUrl,
   defaultTimeoutMs: 30_000,
-  tenantId: useTenantStore.getState().tenantId ?? undefined,
+  getTenantId: () => useAuthStore.getState().tenantId,
   getAccessToken: () => useAuthStore.getState().accessToken,
-  onRefresh: async () => null,
 });
 
 export function useApi() {

@@ -4,11 +4,12 @@
  */
 
 export interface ApiClientConfig {
-  readonly baseUrl: string;
+  readonly baseUrl: string | (() => string);
   readonly defaultTimeoutMs?: number;
   readonly getAccessToken?: () => Promise<string | null> | string | null;
   readonly onRefresh?: () => Promise<string | null>;
   readonly tenantId?: string;
+  readonly getTenantId?: () => string | null | undefined;
   readonly companyId?: string;
   readonly headers?: Readonly<Record<string, string>>;
 }

@@ -1,5 +1,5 @@
 import { Job, JobStatus, JobType } from './types.js';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID as uuidv4 } from 'node:crypto';
 
 export class JobQueue {
   private static instance: JobQueue;

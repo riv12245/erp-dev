@@ -1,4 +1,4 @@
-import { buildErrorFromResponse, createCorrelationId, normalizeError, NetworkError, TimeoutError } from './errors.js';
+import { buildErrorFromResponse, createCorrelationId, isAbortError, normalizeError, NetworkError, TimeoutError } from './errors.js';
 import { ApiClientConfig, ApiRequest, ApiResponse, ApiSuccessResponse, isApiErrorResponse } from './types.js';
 
 export interface ApiClient {
@@ -12,11 +12,10 @@ export interface ApiClient {
 
 function buildQueryString(query?: Readonly<Record<string, string | number | boolean | undefined>>): string {
   if (!query) return '';
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined) params.set(key, String(value));
-  }
-  const serialized = params.toString();
+  const serialized = Object.entries(query)
+    .filter(([, value]) => value !== undefined)
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+    .join('&');
   return serialized ? `?${serialized}` : '';
 }
 
@@ -28,7 +27,8 @@ function buildHeaders(config: ApiClientConfig, request: ApiRequest): Record<stri
     ...request.headers,
   };
   headers['x-correlation-id'] = request.correlationId ?? config.headers?.['x-correlation-id'] ?? createCorrelationId();
-  if (config.tenantId) headers['x-tenant-id'] = config.tenantId;
+  const tenantId = config.getTenantId ? config.getTenantId() : config.tenantId;
+  if (tenantId) headers['x-tenant-id'] = tenantId;
   if (config.companyId) headers['x-company-id'] = config.companyId;
   if (request.idempotencyKey) headers['idempotency-key'] = request.idempotencyKey;
   return headers;
@@ -36,7 +36,7 @@ function buildHeaders(config: ApiClientConfig, request: ApiRequest): Record<stri
 
 /**
  * Creates a configured ApiClient with automatic auth header injection,
- * refresh support, timeout, cancellation, correlation ids and safe retries.
+ * optional refresh support, timeout, cancellation and correlation ids.
  */
 export function createApiClient(config: ApiClientConfig): ApiClient {
   const request = async <T>(req: ApiRequest): Promise<T> => {
@@ -46,15 +46,15 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     const headers = buildHeaders(config, req);
     if (accessToken) headers.authorization = `Bearer ${accessToken}`;
 
+    const correlationId = headers['x-correlation-id'];
+    const baseUrl = typeof config.baseUrl === 'function' ? config.baseUrl() : config.baseUrl;
+    const url = `${baseUrl.replace(/\/+$/, '')}${req.path}${buildQueryString(req.query)}`;
     const timeoutMs = req.timeoutMs ?? config.defaultTimeoutMs ?? 30_000;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     const reqSignal = req.signal;
     if (reqSignal?.aborted) controller.abort();
     else reqSignal?.addEventListener('abort', () => controller.abort(), { once: true });
-
-    const correlationId = headers['x-correlation-id'];
-    const url = `${config.baseUrl}${req.path}${buildQueryString(req.query)}`;
 
     const attempt = async (): Promise<Response> => {
       return fetch(url, {
@@ -70,7 +70,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
       try {
         response = await attempt();
       } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') {
+        if (isAbortError(error)) {
           throw new TimeoutError(timeoutMs);
         }
         throw new NetworkError('Network request failed', error);

@@ -20,7 +20,8 @@ describe('runtime security configuration', () => {
   });
   it('never forces local DNS in production', () => {
     const result = spawnSync(process.execPath, ['--import', './src/bootstrap/dns-cloudflare.mjs', '-e', ''], {
-      cwd: fileURLToPath(new URL('../', import.meta.url)), encoding: 'utf8', env: { ...process.env, NODE_ENV: 'production' },
+      cwd: fileURLToPath(new URL('../', import.meta.url)), encoding: 'utf8', timeout: 10_000,
+      env: { ...process.env, NODE_ENV: 'production' },
     });
     expect(result.status).toBe(0);
     expect(result.stdout).not.toContain('Cloudflare');

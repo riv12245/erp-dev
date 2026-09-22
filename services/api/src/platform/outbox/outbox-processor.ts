@@ -8,13 +8,19 @@ export interface OutboxPublisher {
 /** Idempotent wrapper: handlers are only invoked once per eventId per publisher instance. */
 export class DeduplicatingOutboxPublisher implements OutboxPublisher {
   private readonly seen = new Set<string>();
+  private readonly pending = new Map<string, Promise<void>>();
 
   constructor(private readonly delegate: OutboxPublisher) {}
 
   async publish(event: EventEnvelope): Promise<void> {
     if (this.seen.has(event.eventId)) return;
-    this.seen.add(event.eventId);
-    await this.delegate.publish(event);
+    const existing = this.pending.get(event.eventId);
+    if (existing) return existing;
+    const delivery = this.delegate.publish(event)
+      .then(() => { this.seen.add(event.eventId); })
+      .finally(() => { this.pending.delete(event.eventId); });
+    this.pending.set(event.eventId, delivery);
+    return delivery;
   }
 }
 

@@ -1,4 +1,4 @@
-import { Connection, models, createConnection, Model } from 'mongoose';
+import { Connection, createConnection, Model } from 'mongoose';
 import { ConfigService } from './config.js';
 
 export class MongoConnection {
@@ -26,6 +26,7 @@ export class MongoConnection {
 
     try {
       const conn = await createConnection(mongoUri, {
+        dbName: this.configService.get('mongoDbName'),
         maxPoolSize: Number(process.env.MONGO_POOL_SIZE ?? 50),
         minPoolSize: Number(process.env.MONGO_MIN_POOL_SIZE ?? 5),
         serverSelectionTimeoutMS: 5000,
@@ -33,7 +34,7 @@ export class MongoConnection {
         authSource: 'admin',
         retryWrites: true,
         w: 'majority',
-      });
+      }).asPromise();
 
       this.conn = conn;
       conn.on('error', (err) => {
@@ -68,6 +69,6 @@ export class MongoConnection {
     if (!this.conn || this.conn.readyState !== 1) {
       throw new Error('Database not connected');
     }
-    return models[name] as Model<T>;
+    return this.conn.models[name] as Model<T>;
   }
 }
