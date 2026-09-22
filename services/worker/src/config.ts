@@ -2,6 +2,7 @@ export interface WorkerConfig {
   readonly nodeEnv: string;
   readonly logLevel: string;
   readonly mongoUri: string;
+  readonly mongoDbName: string;
   readonly redisUrl: string;
   readonly workerId: string;
   readonly maxRetries: number;
@@ -15,7 +16,12 @@ export interface WorkerConfig {
 export const workerConfig: WorkerConfig = {
   get nodeEnv() { return process.env.NODE_ENV ?? 'development'; },
   get logLevel() { return process.env.LOG_LEVEL ?? 'info'; },
-  get mongoUri() { return process.env.MONGO_URI ?? 'mongodb://localhost:27017/erp'; },
+  get mongoUri() {
+    const uri = process.env.MONGODB_URI ?? process.env.MONGO_URI;
+    if (!uri && process.env.NODE_ENV === 'production') throw new Error('MONGODB_URI is required in production');
+    return uri ?? 'mongodb://127.0.0.1:27017/erp_dev';
+  },
+  get mongoDbName() { return process.env.MONGODB_DB_NAME ?? 'erp_dev'; },
   get redisUrl() { return process.env.REDIS_URL ?? 'redis://localhost:6379'; },
   get workerId() { return process.env.WORKER_ID ?? `worker-${Date.now()}`; },
   get maxRetries() { return Number(process.env.MAX_RETRIES ?? 5); },
