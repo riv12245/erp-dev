@@ -4,7 +4,7 @@ import { parse } from 'csv-parse/sync';
 export class CsvImporter {
   async import(filePath: string): Promise<void> {
     const content = await readFile(filePath, { encoding: 'utf-8' });
-    const records = parse(content, { columns: true, skip_empty_lines: true });
+    const records = parse<Record<string, string>>(content, { columns: true, skip_empty_lines: true });
 
     console.info(`CSV import from ${filePath}: ${records.length} records processed`);
 

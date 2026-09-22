@@ -20,6 +20,12 @@ coverage/
 *.swo
 *~
 android/app/build/
+**/android/.gradle/
+**/android/build/
+**/android/local.properties
+**/android/.cxx/
+**/android/app/.cxx/
+**/android/app/debug.keystore
 android/app/.gradle/
 android/app/cache/
 ios/Pods/

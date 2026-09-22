@@ -1,14 +1,16 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
+import { Redis } from 'ioredis';
 import { DomainEventDispatcher } from '../src/events/domain-event-dispatcher.js';
 import { EventSchemaValidator } from '../src/events/event-schema-validator.js';
 import { IntegrationEventPublisher } from '../src/events/integration-event-publisher.js';
 import { IdempotencyService } from '../src/idempotency.js';
 import { RetryService } from '../src/retry.js';
 import { DomainEvent } from '../src/shared/types.js';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID as uuidv4 } from 'node:crypto';
 import { hasRedis } from './support.js';
 
 const redisAvailable = await hasRedis();
+if (process.env.CI && !redisAvailable) throw new Error('CI requires Redis for event integration tests');
 
 describe('Event Handling', () => {
   let dispatcher: DomainEventDispatcher;
@@ -20,9 +22,13 @@ describe('Event Handling', () => {
   beforeEach(() => {
     dispatcher = DomainEventDispatcher.getInstance();
     validator = EventSchemaValidator.getInstance();
-    publisher = IntegrationEventPublisher.getInstance();
+    if (redisAvailable) publisher = IntegrationEventPublisher.getInstance();
     idempotencyService = IdempotencyService.getInstance();
     retryService = RetryService.getInstance();
+  });
+
+  afterAll(async () => {
+    if (redisAvailable) await publisher.stop();
   });
 
   it('should validate domain events', async () => {
@@ -88,8 +94,21 @@ describe('Event Handling', () => {
       idempotencyKey: uuidv4(),
     };
 
-    await publisher.publish(event);
-    expect(true).toBe(true);
+    const subscriber = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379');
+    try {
+      await subscriber.subscribe(`integration-events:${event.eventType}`);
+      const received = new Promise<string>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Redis did not deliver the event')), 3000);
+        subscriber.once('message', (_channel, payload) => {
+          clearTimeout(timeout);
+          resolve(payload);
+        });
+      });
+      const [, payload] = await Promise.all([publisher.publish(event), received]);
+      expect(JSON.parse(payload)).toEqual({ ...event, timestamp: event.timestamp.toISOString() });
+    } finally {
+      await subscriber.quit();
+    }
   });
 
   it('should handle duplicate integration events', async () => {

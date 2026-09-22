@@ -1,0 +1,47 @@
+import groovy.json.JsonOutput
+
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
+
+react {
+    root = file("../..")
+    reactNativeDir = file("../../../../node_modules/react-native")
+    codegenDir = file("../../../../node_modules/@react-native/codegen")
+    cliFile = file("../../../../node_modules/react-native/cli.js")
+}
+def apiBaseUrl = providers.gradleProperty("ERP_API_URL")
+    .orElse(providers.environmentVariable("ERP_API_URL"))
+    .getOrElse("http://10.0.2.2:3000")
+if (gradle.startParameter.taskNames.any { it.toLowerCase().contains("release") } && !apiBaseUrl.startsWith("https://")) {
+    throw new GradleException("Release builds require ERP_API_URL with HTTPS")
+}
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
+    namespace "com.erp.mobile"
+    defaultConfig {
+        applicationId "com.erp.mobile"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "0.1.0"
+        buildConfigField "String", "API_BASE_URL", JsonOutput.toJson(apiBaseUrl)
+    }
+    buildFeatures { buildConfig true }
+    buildTypes {
+        debug { }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+    }
+}
+dependencies {
+    implementation("com.facebook.react:react-android")
+    implementation("com.facebook.react:hermes-android")
+}
+apply from: file("../../../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
+applyNativeModulesAppBuildGradle(project)

@@ -93,6 +93,9 @@ jobs:
       - name: Build all workspaces
         run: npm run build
 
+      - name: Bundle Android JavaScript
+        run: npm run bundle:android -w @erp/mobile
+
       - name: Upload build artifacts
         if: success()
         uses: actions/upload-artifact@v4
@@ -105,6 +108,15 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
     services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
       mongodb:
         image: mongo:7
         ports:
@@ -131,6 +143,8 @@ jobs:
         run: npm test
         env:
           MONGO_URI: mongodb://127.0.0.1:27017/erp_ci
+          MONGODB_URI: mongodb://127.0.0.1:27017/erp_ci
+          REDIS_URL: redis://127.0.0.1:6379
 
       - name: Upload test reports
         if: always()
@@ -162,3 +176,30 @@ jobs:
 
       - name: npm audit
         run: npm audit
+
+  android:
+    name: Android debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npm ci
+      - run: npm run build
+      - name: Compile Android app
+        working-directory: apps/mobile/android
+        run: ./gradlew :app:assembleDebug --no-daemon -PreactNativeArchitectures=x86_64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: erp-android-debug
+          path: apps/mobile/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

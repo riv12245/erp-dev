@@ -2,19 +2,14 @@ import React from 'react';
 import { Button, Input, Card } from '@erp/ui';
 import { StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../app/App';
-
-type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
-
-export function LoginScreen({ navigation }: Props): React.JSX.Element {
+export function LoginScreen(): React.JSX.Element {
   const [email, setEmail] = React.useState('');
   const [tenantId, setTenantId] = React.useState('');
   const [password, setPassword] = React.useState('');
   const { login, isLoading, error } = useAuth();
 
   const handleSubmit = async () => {
-    if (await login(email, password, tenantId)) navigation.navigate('Dashboard');
+    await login(email, password, tenantId);
   };
 
   return (

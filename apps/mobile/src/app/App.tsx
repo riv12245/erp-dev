@@ -6,6 +6,7 @@ import { AuthProvider, TenantProvider, PermissionProvider } from '../store/provi
 import { LoginScreen } from '../features/auth/LoginScreen';
 import { DashboardScreen } from '../features/dashboard/Index';
 import { enableScreens } from 'react-native-screens';
+import { useAuthStore } from '../store/auth-store';
 
 enableScreens();
 
@@ -17,15 +18,16 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function App(): React.JSX.Element {
+  const authenticated = useAuthStore((state) => state.isAuthenticated);
   return (
     <SafeAreaProvider>
       <AuthProvider>
         <TenantProvider>
           <PermissionProvider>
             <NavigationContainer>
-              <Stack.Navigator initialRouteName="Login">
-                <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="Dashboard" component={DashboardScreen} />
+              <Stack.Navigator>
+                {authenticated ? <Stack.Screen name="Dashboard" component={DashboardScreen} /> :
+                  <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />}
               </Stack.Navigator>
             </NavigationContainer>
           </PermissionProvider>
