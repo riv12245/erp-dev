@@ -29,7 +29,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (email: string, password: string, tenantId: string) => {
     set({ isLoading: true, error: null, user: null, accessToken: null, tenantId: null, isAuthenticated: false });
     try {
-      const response = await fetch('/api/v1/auth/login', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}/api/v1/auth/login', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-tenant-id': tenantId.trim() },
         body: JSON.stringify({ email, password }),
