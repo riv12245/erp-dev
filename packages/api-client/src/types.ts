@@ -9,6 +9,7 @@ export interface ApiClientConfig {
   readonly getAccessToken?: () => Promise<string | null> | string | null;
   readonly onRefresh?: () => Promise<string | null>;
   readonly tenantId?: string;
+  readonly getTenantId?: () => string | null | undefined;
   readonly companyId?: string;
   readonly headers?: Readonly<Record<string, string>>;
 }
