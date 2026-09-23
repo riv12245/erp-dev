@@ -31,13 +31,20 @@ Node 24.18.0 fue el runtime verificado. El seed usa tsx y reutiliza modelos del 
 | GET /api/v1/master-data/countries | master-data.country.read | Datos globales, meta.count, sin paginación |
 | POST /api/v1/master-data/countries | master-data.country.write | Upsert GLOBAL visible a todos los tenants |
 | GET /api/v1/audit | audit.read | Filtrado tenant, entityType, actorId; limit 1..100 y offset >=0 |
-| GET /api/v1/{module}/health | JWT + tenant + membership | Solo informa skeleton; no representa funcionalidad empresarial |
+| GET /api/v1/companies; POST /companies | Lista acceso explícito; creación tenancy.company.write | Compañía + membership del creador + audit en transacción |
+| PUT /api/v1/companies/{companyId}/memberships/{userId} | tenancy.company.membership.write + acceso compañía | Usuario activo del mismo tenant; grant/revocación explícitos |
+| /api/v1/companies/{companyId}/crm/customers | crm.customer.read/write + compañía | Alta, listado/búsqueda, detalle, PATCH con expectedVersion |
+| /api/v1/companies/{companyId}/inventory/products y warehouses | inventory.product/warehouse.read/write + compañía | Alta, listado, detalle y edición versionada |
+| /api/v1/companies/{companyId}/inventory/stock y movements | inventory.stock.read/write + compañía | Balance, historial y movimiento transaccional idempotente |
+| /api/v1/companies/{companyId}/sales/orders | sales.order.read/write + compañía | Borradores, detalle, listado y cancelación; total fiscal pendiente |
+| /api/v1/companies/{companyId}/purchasing/suppliers | purchasing.supplier.read/write + compañía | Alta, listado/búsqueda, detalle y edición versionada |
+| GET /api/v1/{module}/health | JWT + tenant + membership | Estado informativo; no certifica pruebas ni todos los flujos del módulo |
 
 Los health de módulo existen para sales, crm, inventory, finance, eshop, hr, projects, purchasing, logistics, production, bookings y field-service.
 
 ## Seed
 
-npm run seed:dev crea/actualiza 3 tenants, 4 usuarios demo, 6 roles tenant-scoped, 3 permisos y 4 memberships.
+npm run seed:dev crea/actualiza 3 tenants, 4 usuarios demo, 6 roles tenant-scoped, los 3 permisos de core y el catálogo BUSINESS_PERMISSIONS, y 4 memberships de tenant. No crea compañías ni acceso empresarial para todos los usuarios.
 Admin ACME/GLOBAL/LABS recibe ADMIN en su tenant; sales@acme.io recibe SALES en ACME y solo lectura de países.
 Solo admite development/test y bases erp_dev o erp_test (también sufijos separados por underscore). SEED_PASSWORD permite sustituir la contraseña demo; el seed nunca la imprime.
 --reset requiere además SEED_DEV=true: reinicia grants demo y bloqueo de usuarios demo, conserva sus IDs y los datos ajenos. No vacía colecciones.
@@ -45,7 +52,7 @@ Los índices únicos de membership (userId, tenantId) y rol (tenantId, name) req
 
 ## Límites y roadmap
 
-Los CRUD de tenants/companies/users/roles/permissions, gestión de memberships, onboarding y MFA no están implementados. Cada operación futura del YAML lleva x-implementation-status: roadmap.
+La creación/lista autorizada de compañías y sus memberships explícitas están implementadas. La edición/borrado de compañías, los CRUD de tenants/users/roles/permissions, onboarding general y MFA siguen pendientes. Cada operación futura del YAML lleva x-implementation-status: roadmap. Pruebas de fase 3 preparadas pero no ejecutadas: [plan de validación](../docs/architecture/PHASE_3_TEST_PLAN.md).
 El audit registra login, bloqueo, refresh, reutilización y logout. Los rechazos 401/403 registran código y correlationId sin credenciales. Eventos de futura gestión IAM siguen pendientes.
 Web/móvil envían tenant explícito, pero no se certifica despliegue nativo Android ni flujo UI completo en dispositivo.
 El workaround Cloudflare se conserva para desarrollo; NODE_ENV=production nunca lo aplica y LOCAL_CLOUDFLARE_DNS=false lo desactiva localmente.

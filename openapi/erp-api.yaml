@@ -6,7 +6,7 @@ info:
     Public routes: health, status, register and login. Refresh/logout require a refresh credential. Login requires x-tenant-id. Protected routes require JWT plus
     matching tenant context and an active membership. No default tenant. Responses use data/meta/correlationId or
     error/correlationId, without a success flag. Company/branch headers are contextual metadata, not independently
-    authorized scopes.
+    authorized scopes. Business company routes also require an active persisted company and explicit company membership.
   version: v1
   contact:
     name: ERP Platform Team
@@ -69,6 +69,7 @@ components:
             - BAD_REQUEST
             - TENANT_ACCESS_DENIED
             - INSUFFICIENT_STOCK
+            - INVENTORY_INSUFFICIENT_STOCK
             - UNAUTHORIZED_TRANSITION
             - FISCAL_PERIOD_CLOSED
             - DUPLICATE_RESOURCE
@@ -612,87 +613,975 @@ components:
           type: string
           format: uuid
     Company:
-      type: object
-      required:
-        - id
-        - name
-        - tenantId
-        - isActive
-        - createdAt
-        - updatedAt
+      type: "object"
+      additionalProperties: false
+      required: ["id","tenantId","name","taxId","registrationNumber","defaultCurrency","defaultTimezone","isActive","version","createdAt","updatedAt"]
+      properties:
+        name:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        taxId:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        registrationNumber:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        defaultCurrency:
+          type: "string"
+          pattern: "^[A-Z]{3}$"
+        defaultTimezone:
+          type: "string"
+          maxLength: 200
+          description: "Valid IANA timezone"
+        id:
+          type: "string"
+          format: "uuid"
+        tenantId:
+          type: "string"
+          maxLength: 200
+        isActive:
+          type: "boolean"
+        version:
+          type: "integer"
+          minimum: 0
+          maximum: 9007199254740990
+        createdAt:
+          type: "string"
+          format: "date-time"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+    CreateCompanyRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["name","taxId","registrationNumber","defaultCurrency","defaultTimezone"]
+      properties:
+        name:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        taxId:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        registrationNumber:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        defaultCurrency:
+          type: "string"
+          pattern: "^[A-Z]{3}$"
+        defaultTimezone:
+          type: "string"
+          maxLength: 200
+          description: "Valid IANA timezone"
+    CustomerCreate:
+      type: "object"
+      additionalProperties: false
+      required: ["type","name"]
+      properties:
+        type:
+          type: "string"
+          enum: ["company","individual"]
+        name:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        email:
+          type: "string"
+          maxLength: 254
+          format: "email"
+        phone:
+          type: "string"
+          maxLength: 50
+        taxId:
+          type: "string"
+          maxLength: 100
+    CustomerPatch:
+      type: "object"
+      additionalProperties: false
+      required: ["expectedVersion"]
+      properties:
+        type:
+          type: "string"
+          enum: ["company","individual"]
+        name:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        email:
+          type: "string"
+          maxLength: 254
+          format: "email"
+        phone:
+          type: "string"
+          maxLength: 50
+        taxId:
+          type: "string"
+          maxLength: 100
+        status:
+          type: "string"
+          enum: ["active","inactive","blocked"]
+        expectedVersion:
+          type: "integer"
+          minimum: 1
+          maximum: 9007199254740990
+    Customer:
+      type: "object"
+      additionalProperties: false
+      required: ["customerId","tenantId","companyId","name","type","status","version","createdAt","updatedAt"]
+      properties:
+        type:
+          type: "string"
+          enum: ["company","individual"]
+        name:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        email:
+          type: "string"
+          maxLength: 254
+          format: "email"
+        phone:
+          type: "string"
+          maxLength: 50
+        taxId:
+          type: "string"
+          maxLength: 100
+        customerId:
+          type: "string"
+          format: "uuid"
+        tenantId:
+          type: "string"
+          maxLength: 200
+        companyId:
+          type: "string"
+          format: "uuid"
+        status:
+          type: "string"
+          enum: ["active","inactive","blocked"]
+        version:
+          type: "integer"
+          minimum: 1
+          maximum: 9007199254740990
+        createdAt:
+          type: "string"
+          format: "date-time"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        createdBy:
+          type: "string"
+          maxLength: 200
+        updatedBy:
+          type: "string"
+          maxLength: 200
+    ProductCreate:
+      type: "object"
+      additionalProperties: false
+      required: ["name","sku","unitOfMeasure"]
+      properties:
+        name:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        sku:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+          description: "Normalized uppercase; unique within tenant and company"
+        unitOfMeasure:
+          type: "string"
+          enum: ["piece","kg","liter","meter","box","set"]
+        description:
+          type: "string"
+          maxLength: 2000
+        category:
+          type: "string"
+          maxLength: 2000
+        subcategory:
+          type: ["string","null"]
+          maxLength: 2000
+        costPrice:
+          type: "number"
+          minimum: 0
+        sellingPrice:
+          type: "number"
+          minimum: 0
+        taxRate:
+          type: "number"
+          minimum: 0
+          description: "Reference metadata only; not a fiscal tax calculation"
+        weight:
+          type: ["number","null"]
+          minimum: 0
+        dimensions:
+          oneOf: [{"type":"null"},{"type":"object","additionalProperties":false,"required":["length","width","height","unit"],"properties":{"length":{"type":"number","minimum":0},"width":{"type":"number","minimum":0},"height":{"type":"number","minimum":0},"unit":{"type":"string","maxLength":20}}}]
+        isActive:
+          type: "boolean"
+    ProductPatch:
+      type: "object"
+      additionalProperties: false
+      required: ["expectedVersion"]
+      properties:
+        name:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        sku:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+          description: "Normalized uppercase; unique within tenant and company"
+        unitOfMeasure:
+          type: "string"
+          enum: ["piece","kg","liter","meter","box","set"]
+        description:
+          type: "string"
+          maxLength: 2000
+        category:
+          type: "string"
+          maxLength: 2000
+        subcategory:
+          type: ["string","null"]
+          maxLength: 2000
+        costPrice:
+          type: "number"
+          minimum: 0
+        sellingPrice:
+          type: "number"
+          minimum: 0
+        taxRate:
+          type: "number"
+          minimum: 0
+          description: "Reference metadata only; not a fiscal tax calculation"
+        weight:
+          type: ["number","null"]
+          minimum: 0
+        dimensions:
+          oneOf: [{"type":"null"},{"type":"object","additionalProperties":false,"required":["length","width","height","unit"],"properties":{"length":{"type":"number","minimum":0},"width":{"type":"number","minimum":0},"height":{"type":"number","minimum":0},"unit":{"type":"string","maxLength":20}}}]
+        isActive:
+          type: "boolean"
+        expectedVersion:
+          type: "integer"
+          minimum: 0
+          maximum: 9007199254740990
+    Product:
+      type: "object"
+      additionalProperties: false
+      required: ["id","companyId","name","sku","unitOfMeasure","isActive","version","createdAt","updatedAt"]
+      properties:
+        name:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        sku:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+          description: "Normalized uppercase; unique within tenant and company"
+        unitOfMeasure:
+          type: "string"
+          enum: ["piece","kg","liter","meter","box","set"]
+        description:
+          type: "string"
+          maxLength: 2000
+        category:
+          type: "string"
+          maxLength: 2000
+        subcategory:
+          type: ["string","null"]
+          maxLength: 2000
+        costPrice:
+          type: "number"
+          minimum: 0
+        sellingPrice:
+          type: "number"
+          minimum: 0
+        taxRate:
+          type: "number"
+          minimum: 0
+          description: "Reference metadata only; not a fiscal tax calculation"
+        weight:
+          type: ["number","null"]
+          minimum: 0
+        dimensions:
+          oneOf: [{"type":"null"},{"type":"object","additionalProperties":false,"required":["length","width","height","unit"],"properties":{"length":{"type":"number","minimum":0},"width":{"type":"number","minimum":0},"height":{"type":"number","minimum":0},"unit":{"type":"string","maxLength":20}}}]
+        isActive:
+          type: "boolean"
+        id:
+          type: "string"
+          format: "uuid"
+        companyId:
+          type: "string"
+          format: "uuid"
+        version:
+          type: "integer"
+          minimum: 0
+          maximum: 9007199254740990
+        createdAt:
+          type: "string"
+          format: "date-time"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+    WarehouseCreate:
+      type: "object"
+      additionalProperties: false
+      required: ["name","code"]
+      properties:
+        name:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        code:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+          description: "Uppercase; unique within tenant/company"
+        location:
+          type: "string"
+          maxLength: 1000
+        type:
+          type: "string"
+          enum: ["main","regional","local","dropship"]
+        capacity:
+          type: "number"
+          minimum: 0
+        isActive:
+          type: "boolean"
+    WarehousePatch:
+      type: "object"
+      additionalProperties: false
+      required: ["expectedVersion"]
+      properties:
+        name:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        code:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+          description: "Uppercase; unique within tenant/company"
+        location:
+          type: "string"
+          maxLength: 1000
+        type:
+          type: "string"
+          enum: ["main","regional","local","dropship"]
+        capacity:
+          type: "number"
+          minimum: 0
+        isActive:
+          type: "boolean"
+        expectedVersion:
+          type: "integer"
+          minimum: 0
+          maximum: 9007199254740990
+    Warehouse:
+      type: "object"
+      additionalProperties: false
+      required: ["id","companyId","name","code","isActive","version","createdAt","updatedAt"]
+      properties:
+        name:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        code:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+          description: "Uppercase; unique within tenant/company"
+        location:
+          type: "string"
+          maxLength: 1000
+        type:
+          type: "string"
+          enum: ["main","regional","local","dropship"]
+        capacity:
+          type: "number"
+          minimum: 0
+        isActive:
+          type: "boolean"
+        id:
+          type: "string"
+          format: "uuid"
+        companyId:
+          type: "string"
+          format: "uuid"
+        version:
+          type: "integer"
+          minimum: 0
+          maximum: 9007199254740990
+        createdAt:
+          type: "string"
+          format: "date-time"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+    StockAvailability:
+      type: "object"
+      additionalProperties: false
+      required: ["companyId","productId","warehouseId","onHand","available","reserved","reservationsSupported"]
+      properties:
+        companyId:
+          type: "string"
+          format: "uuid"
+        productId:
+          type: "string"
+          format: "uuid"
+        warehouseId:
+          type: "string"
+          format: "uuid"
+        onHand:
+          type: "number"
+          minimum: 0
+        available:
+          type: "number"
+          minimum: 0
+        reserved:
+          const: 0
+        reservationsSupported:
+          const: false
+    StockMovementCreate:
+      type: "object"
+      additionalProperties: false
+      required: ["productId","warehouseId","type","quantity","reason","idempotencyKey"]
+      properties:
+        productId:
+          type: "string"
+          format: "uuid"
+        warehouseId:
+          type: "string"
+          format: "uuid"
+        type:
+          type: "string"
+          enum: ["inbound","outbound","adjustment"]
+        quantity:
+          type: "number"
+          description: "Nonzero signed delta for adjustment; positive for inbound/outbound. At most six decimal places, safe integer micro-units; scaled absolute value and resulting balance must not exceed MAX_SAFE_INTEGER. Floating-point values that cannot preserve a micro-unit are rejected."
+        reason:
+          type: "string"
+          maxLength: 1000
+          minLength: 1
+        idempotencyKey:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        referenceId:
+          type: ["string","null"]
+          maxLength: 200
+    StockMovement:
+      type: "object"
+      additionalProperties: false
+      required: ["id","companyId","productId","warehouseId","type","quantity","reason","idempotencyKey","createdAt"]
       properties:
         id:
-          type: string
-          format: uuid
-        name:
-          type: string
-          description: Legal name of the company
-        slug:
-          type: string
-        taxId:
-          type: string
-          description: Tax identification number
-        currency:
-          type: string
-          description: Default currency code (ISO 4217)
-        locale:
-          type: string
-          description: Default locale (e.g., "en-US")
-        timezone:
-          type: string
-          description: Default timezone
-        address:
-          type: object
-          properties:
-            street:
-              type: string
-            city:
-              type: string
-            state:
-              type: string
-            country:
-              type: string
-            postalCode:
-              type: string
-        phone:
-          type: string
-        logoUrl:
-          type: string
-          format: uri
-        tenantId:
-          type: string
-          format: uuid
-        isActive:
-          type: boolean
+          type: "string"
+          format: "uuid"
+        companyId:
+          type: "string"
+          format: "uuid"
+        version:
+          type: "integer"
+          minimum: 0
+          maximum: 9007199254740990
         createdAt:
-          type: string
-          format: date-time
+          type: "string"
+          format: "date-time"
         updatedAt:
-          type: string
-          format: date-time
-    CreateCompanyRequest:
-      type: object
-      required:
-        - name
-        - tenantId
+          type: "string"
+          format: "date-time"
+        productId:
+          type: "string"
+          format: "uuid"
+        warehouseId:
+          type: "string"
+          format: "uuid"
+        skuId:
+          type: "string"
+          format: "uuid"
+        type:
+          type: "string"
+          enum: ["inbound","outbound","adjustment"]
+        quantity:
+          type: "number"
+        reason:
+          type: "string"
+          maxLength: 1000
+        idempotencyKey:
+          type: "string"
+          maxLength: 200
+        referenceId:
+          type: ["string","null"]
+    CompanyMembershipRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["status"]
+      properties:
+        status:
+          type: "string"
+          enum: ["active","disabled"]
+    CustomerPage:
+      type: "object"
+      additionalProperties: false
+      required: ["items","total","page","limit","totalPages"]
+      properties:
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/Customer"
+        total:
+          type: "integer"
+          minimum: 0
+        page:
+          type: "integer"
+          minimum: 1
+        limit:
+          type: "integer"
+          minimum: 1
+          maximum: 100
+        totalPages:
+          type: "integer"
+          minimum: 0
+    ProductPage:
+      type: "object"
+      additionalProperties: false
+      required: ["items","total","page","limit","totalPages"]
+      properties:
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/Product"
+        total:
+          type: "integer"
+          minimum: 0
+        page:
+          type: "integer"
+          minimum: 1
+        limit:
+          type: "integer"
+          minimum: 1
+          maximum: 100
+        totalPages:
+          type: "integer"
+          minimum: 0
+    WarehousePage:
+      type: "object"
+      additionalProperties: false
+      required: ["items","total","page","limit","totalPages"]
+      properties:
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/Warehouse"
+        total:
+          type: "integer"
+          minimum: 0
+        page:
+          type: "integer"
+          minimum: 1
+        limit:
+          type: "integer"
+          minimum: 1
+          maximum: 100
+        totalPages:
+          type: "integer"
+          minimum: 0
+    StockAvailabilityPage:
+      type: "object"
+      additionalProperties: false
+      required: ["items","total","page","limit","totalPages"]
+      properties:
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/StockAvailability"
+        total:
+          type: "integer"
+          minimum: 0
+        page:
+          type: "integer"
+          minimum: 1
+        limit:
+          type: "integer"
+          minimum: 1
+          maximum: 100
+        totalPages:
+          type: "integer"
+          minimum: 0
+    StockMovementPage:
+      type: "object"
+      additionalProperties: false
+      required: ["items","total","page","limit","totalPages"]
+      properties:
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/StockMovement"
+        total:
+          type: "integer"
+          minimum: 0
+        page:
+          type: "integer"
+          minimum: 1
+        limit:
+          type: "integer"
+          minimum: 1
+          maximum: 100
+        totalPages:
+          type: "integer"
+          minimum: 0
+    SupplierCreate:
+      type: "object"
+      additionalProperties: false
+      required: ["name"]
       properties:
         name:
-          type: string
-        slug:
-          type: string
-        taxId:
-          type: string
-        currency:
-          type: string
-        locale:
-          type: string
-        timezone:
-          type: string
-        address:
-          type: object
-          additionalProperties: true
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        email:
+          type: "string"
+          maxLength: 254
+          format: "email"
         phone:
-          type: string
+          type: "string"
+          maxLength: 50
+    SupplierPatch:
+      type: "object"
+      additionalProperties: false
+      required: ["expectedVersion"]
+      properties:
+        name:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        email:
+          type: "string"
+          maxLength: 254
+          format: "email"
+        phone:
+          type: "string"
+          maxLength: 50
+        expectedVersion:
+          type: "integer"
+          minimum: 1
+          maximum: 9007199254740990
+        status:
+          type: "string"
+          enum: ["active","inactive"]
+    Supplier:
+      type: "object"
+      additionalProperties: false
+      required: ["supplierId","tenantId","companyId","name","status","version","createdAt","updatedAt"]
+      properties:
+        name:
+          type: "string"
+          maxLength: 200
+          minLength: 1
+        email:
+          type: "string"
+          maxLength: 254
+          format: "email"
+        phone:
+          type: "string"
+          maxLength: 50
+        supplierId:
+          type: "string"
+          format: "uuid"
+        tenantId:
+          type: "string"
+        companyId:
+          type: "string"
+          format: "uuid"
+        status:
+          type: "string"
+          enum: ["active","inactive"]
+        version:
+          type: "integer"
+          minimum: 1
+          maximum: 9007199254740990
+        createdAt:
+          type: "string"
+          format: "date-time"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        createdBy:
+          type: "string"
+        updatedBy:
+          type: "string"
+    DraftSalesOrderCreate:
+      type: "object"
+      additionalProperties: false
+      required: ["customerId","warehouseId","currency","idempotencyKey","lines"]
+      properties:
+        customerId:
+          type: "string"
+          format: "uuid"
+        warehouseId:
+          type: "string"
+          format: "uuid"
+        currency:
+          type: "string"
+          pattern: "^[A-Z]{3}$"
+        idempotencyKey:
+          type: "string"
+          minLength: 1
+          maxLength: 200
+        lines:
+          type: "array"
+          minItems: 1
+          maxItems: 100
+          items:
+            type: "object"
+            additionalProperties: false
+            required: ["itemId","quantity","unitPrice"]
+            properties:
+              itemId:
+                type: "string"
+                format: "uuid"
+              quantity:
+                type: "number"
+                exclusiveMinimum: 0
+                maximum: 1000000
+                multipleOf: 0.001
+              unitPrice:
+                type: "number"
+                minimum: 0
+                maximum: 1000000000
+                description: "Operator-entered draft price; precision uses company currency minor units from Intl"
+    DraftSalesOrder:
+      type: "object"
+      additionalProperties: false
+      required: ["orderId","number","tenantId","companyId","customerId","warehouseId","currency","status","lines","subtotal","total","taxAmount","pricingStatus","version","createdAt","updatedAt","createdBy","updatedBy"]
+      properties:
+        orderId:
+          type: "string"
+          format: "uuid"
+        number:
+          type: "string"
+          description: "UUID draft reference; not a legal/fiscal sequence"
+        tenantId:
+          type: "string"
+        companyId:
+          type: "string"
+          format: "uuid"
+        customerId:
+          type: "string"
+          format: "uuid"
+        warehouseId:
+          type: "string"
+          format: "uuid"
+        currency:
+          type: "string"
+          pattern: "^[A-Z]{3}$"
+        status:
+          type: "string"
+          enum: ["DRAFT","CANCELLED"]
+        lines:
+          type: "array"
+          items:
+            type: "object"
+            additionalProperties: false
+            required: ["itemId","quantity","unitPrice","lineId","description","subtotal"]
+            properties:
+              itemId:
+                type: "string"
+                format: "uuid"
+              quantity:
+                type: "number"
+                exclusiveMinimum: 0
+                maximum: 1000000
+                multipleOf: 0.001
+              unitPrice:
+                type: "number"
+                minimum: 0
+                maximum: 1000000000
+                description: "Operator-entered draft price; precision uses company currency minor units from Intl"
+              lineId:
+                type: "string"
+                format: "uuid"
+              description:
+                type: "string"
+              subtotal:
+                type: "number"
+                minimum: 0
+        subtotal:
+          type: "number"
+          minimum: 0
+        total:
+          type: "null"
+        taxAmount:
+          type: "null"
+        pricingStatus:
+          const: "tax-policy-required"
+        version:
+          type: "integer"
+          minimum: 1
+          maximum: 9007199254740990
+        createdAt:
+          type: "string"
+          format: "date-time"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        createdBy:
+          type: "string"
+        updatedBy:
+          type: "string"
+    DraftSalesOrderDetail:
+      type: "object"
+      additionalProperties: false
+      required: ["orderId","number","tenantId","companyId","customerId","warehouseId","currency","status","lines","subtotal","total","taxAmount","pricingStatus","version","createdAt","updatedAt","createdBy","updatedBy","availability"]
+      properties:
+        orderId:
+          type: "string"
+          format: "uuid"
+        number:
+          type: "string"
+          description: "UUID draft reference; not a legal/fiscal sequence"
+        tenantId:
+          type: "string"
+        companyId:
+          type: "string"
+          format: "uuid"
+        customerId:
+          type: "string"
+          format: "uuid"
+        warehouseId:
+          type: "string"
+          format: "uuid"
+        currency:
+          type: "string"
+          pattern: "^[A-Z]{3}$"
+        status:
+          type: "string"
+          enum: ["DRAFT","CANCELLED"]
+        lines:
+          type: "array"
+          items:
+            type: "object"
+            additionalProperties: false
+            required: ["itemId","quantity","unitPrice","lineId","description","subtotal"]
+            properties:
+              itemId:
+                type: "string"
+                format: "uuid"
+              quantity:
+                type: "number"
+                exclusiveMinimum: 0
+                maximum: 1000000
+                multipleOf: 0.001
+              unitPrice:
+                type: "number"
+                minimum: 0
+                maximum: 1000000000
+                description: "Operator-entered draft price; precision uses company currency minor units from Intl"
+              lineId:
+                type: "string"
+                format: "uuid"
+              description:
+                type: "string"
+              subtotal:
+                type: "number"
+                minimum: 0
+        subtotal:
+          type: "number"
+          minimum: 0
+        total:
+          type: "null"
+        taxAmount:
+          type: "null"
+        pricingStatus:
+          const: "tax-policy-required"
+        version:
+          type: "integer"
+          minimum: 1
+          maximum: 9007199254740990
+        createdAt:
+          type: "string"
+          format: "date-time"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        createdBy:
+          type: "string"
+        updatedBy:
+          type: "string"
+        availability:
+          type: "array"
+          items:
+            type: "object"
+            additionalProperties: false
+            required: ["itemId","availability","availabilityStatus"]
+            properties:
+              itemId:
+                type: "string"
+                format: "uuid"
+              availability:
+                oneOf: [{"$ref":"#/components/schemas/StockAvailability"},{"type":"null"}]
+              availabilityStatus:
+                type: "string"
+                enum: ["available","reference-inactive-or-missing"]
+    DraftSalesOrderCancel:
+      type: "object"
+      additionalProperties: false
+      required: ["expectedVersion"]
+      properties:
+        expectedVersion:
+          type: "integer"
+          minimum: 1
+          maximum: 9007199254740990
+    SupplierPage:
+      type: "object"
+      additionalProperties: false
+      required: ["items","total","page","limit","totalPages"]
+      properties:
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/Supplier"
+        total:
+          type: "integer"
+          minimum: 0
+        page:
+          type: "integer"
+          minimum: 1
+        limit:
+          type: "integer"
+          minimum: 1
+          maximum: 100
+        totalPages:
+          type: "integer"
+          minimum: 0
+    DraftSalesOrderPage:
+      type: "object"
+      additionalProperties: false
+      required: ["items","total","page","limit","totalPages"]
+      properties:
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/DraftSalesOrder"
+        total:
+          type: "integer"
+          minimum: 0
+        page:
+          type: "integer"
+          minimum: 1
+        limit:
+          type: "integer"
+          minimum: 1
+          maximum: 100
+        totalPages:
+          type: "integer"
+          minimum: 0
     UpdateCompanyRequest:
       type: object
       properties:
@@ -1635,73 +2524,125 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
       x-implementation-status: roadmap
-  /api/v1/companies:
+  "/api/v1/companies":
     get:
-      operationId: listCompanies
-      tags:
-        - Companies
-      summary: 'Roadmap: List companies'
-      description: NOT IMPLEMENTED. Retrieves a paginated list of companies for the current tenant.
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/Paginationpage'
-        - $ref: '#/components/parameters/Paginationlimit'
-        - $ref: '#/components/parameters/PaginationsortBy'
-        - $ref: '#/components/parameters/PaginationsortOrder'
-        - name: search
-          in: query
-          schema:
-            type: string
-          description: Search term for company name
+      operationId: "listCompanies"
+      summary: "List authorized active companies"
+      description: "Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. Sorted by name/id; maximum 100 rows. No query filters supported."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"}]
       responses:
-        '200':
-          description: List of companies
+        "200":
+          description: "Successful operation"
           content:
-            application/json:
+            "application/json":
               schema:
-                $ref: '#/components/schemas/PaginatedResponse'
-        '401':
-          description: Unauthorized
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    type: "array"
+                    items:
+                      $ref: "#/components/schemas/Company"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
           content:
-            application/json:
+            "application/json":
               schema:
-                $ref: '#/components/schemas/Error'
-        '403':
-          description: Forbidden
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
           content:
-            application/json:
+            "application/json":
               schema:
-                $ref: '#/components/schemas/Error'
-      x-implementation-status: roadmap
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
     post:
-      operationId: createCompany
-      tags:
-        - Companies
-      summary: 'Roadmap: Create company'
-      description: NOT IMPLEMENTED. Creates a new company within the current tenant.
-      security:
-        - bearerAuth: []
+      operationId: "createCompany"
+      summary: "Create company and creator access"
+      description: "Requires tenancy.company.write. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. Replica-set transaction persists company, creator membership and audit. No other user is granted access."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"}]
       requestBody:
         required: true
         content:
-          application/json:
+          "application/json":
             schema:
-              $ref: '#/components/schemas/CreateCompanyRequest'
+              $ref: "#/components/schemas/CreateCompanyRequest"
       responses:
-        '201':
-          description: Company created successfully
+        "200":
+          description: "Successful operation"
           content:
-            application/json:
+            "application/json":
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
-        '400':
-          description: Validation error
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Company"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
           content:
-            application/json:
+            "application/json":
               schema:
-                $ref: '#/components/schemas/Error'
-      x-implementation-status: roadmap
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
   /api/v1/companies/{companyId}:
     get:
       operationId: getCompany
@@ -2752,6 +3693,1423 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  "/api/v1/companies/{companyId}/memberships/{userId}":
+    put:
+      operationId: "setCompanyMembership"
+      summary: "Grant or revoke company access"
+      description: "Requires tenancy.company.membership.write. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. Caller also needs current company access. Target must be an active user and tenant member. Self-revocation rejected."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"},{"name":"userId","in":"path","required":true,"schema":{"type":"string","pattern":"^[a-fA-F0-9]{24}$"}}]
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/CompanyMembershipRequest"
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    type: "object"
+                    additionalProperties: false
+                    required: ["companyId","userId","status"]
+                    properties:
+                      companyId:
+                        type: "string"
+                        format: "uuid"
+                      userId:
+                        type: "string"
+                      status:
+                        type: "string"
+                        enum: ["active","disabled"]
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/companies/{companyId}/crm/customers":
+    get:
+      operationId: "listCustomers"
+      summary: "Search company customers"
+      description: "Requires crm.customer.read. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. Literal case-insensitive search over name/email. Names/emails are not unique. Count and page are separate reads."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"},{"name":"page","in":"query","schema":{"type":"integer","minimum":1,"maximum":1000000,"default":1}},{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":100,"default":20}},{"name":"search","in":"query","schema":{"type":"string","maxLength":200}},{"name":"status","in":"query","schema":{"type":"string","enum":["active","inactive","blocked"]}}]
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CustomerPage"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: "createCustomer"
+      summary: "Register customer"
+      description: "Requires crm.customer.write. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. Initial status active and version 1. Mutation and audit are one transaction."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"}]
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/CustomerCreate"
+      responses:
+        "201":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Customer"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/companies/{companyId}/crm/customers/{customerId}":
+    get:
+      operationId: "getCustomer"
+      summary: "Read customer"
+      description: "Requires crm.customer.read. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. "
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"},{"name":"customerId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Customer"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      operationId: "updateCustomer"
+      summary: "Edit customer or active status"
+      description: "Requires crm.customer.write. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. At least one mutable field in addition to expectedVersion. Optional contact fields cannot be cleared. Stale version returns 409."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"},{"name":"customerId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/CustomerPatch"
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Customer"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/companies/{companyId}/inventory/products":
+    get:
+      operationId: "listProducts"
+      summary: "List products"
+      description: "Requires inventory.product.read. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. Stable createdAt/id ordering."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"},{"name":"page","in":"query","schema":{"type":"integer","minimum":1,"maximum":1000000,"default":1}},{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":100,"default":50}},{"name":"q","in":"query","schema":{"type":"string","maxLength":200}}]
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ProductPage"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: "createProduct"
+      summary: "Create products"
+      description: "Requires inventory.product.write. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. Business mutation and audit are transactional."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"}]
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/ProductCreate"
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Product"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/companies/{companyId}/inventory/products/{id}":
+    get:
+      operationId: "getProduct"
+      summary: "Read product"
+      description: "Requires inventory.product.read. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. "
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"},{"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Product"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      operationId: "updateProduct"
+      summary: "Edit product"
+      description: "Requires inventory.product.write. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. At least one mutable field plus expectedVersion. No stock changes through catalog edits."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"},{"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/ProductPatch"
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Product"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/companies/{companyId}/inventory/warehouses":
+    get:
+      operationId: "listWarehouses"
+      summary: "List warehouses"
+      description: "Requires inventory.warehouse.read. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. Stable createdAt/id ordering."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"},{"name":"page","in":"query","schema":{"type":"integer","minimum":1,"maximum":1000000,"default":1}},{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":100,"default":50}},{"name":"q","in":"query","schema":{"type":"string","maxLength":200}}]
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/WarehousePage"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: "createWarehouse"
+      summary: "Create warehouses"
+      description: "Requires inventory.warehouse.write. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. Business mutation and audit are transactional."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"}]
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/WarehouseCreate"
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Warehouse"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/companies/{companyId}/inventory/warehouses/{id}":
+    get:
+      operationId: "getWarehouse"
+      summary: "Read warehouse"
+      description: "Requires inventory.warehouse.read. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. "
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"},{"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Warehouse"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      operationId: "updateWarehouse"
+      summary: "Edit warehouse"
+      description: "Requires inventory.warehouse.write. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. At least one mutable field plus expectedVersion. No stock changes through catalog edits."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"},{"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/WarehousePatch"
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Warehouse"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/companies/{companyId}/inventory/stock":
+    get:
+      operationId: "listStock"
+      summary: "List stock"
+      description: "Requires inventory.stock.read. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. Persisted balances only. Reservations are unsupported; available equals onHand."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"},{"name":"page","in":"query","schema":{"type":"integer","minimum":1,"maximum":1000000,"default":1}},{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":100,"default":50}},{"name":"productId","in":"query","schema":{"type":"string","format":"uuid"}},{"name":"warehouseId","in":"query","schema":{"type":"string","format":"uuid"}}]
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/StockAvailabilityPage"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/companies/{companyId}/inventory/movements":
+    get:
+      operationId: "listMovements"
+      summary: "List movements"
+      description: "Requires inventory.stock.read. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. Stable createdAt/id ordering."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"},{"name":"page","in":"query","schema":{"type":"integer","minimum":1,"maximum":1000000,"default":1}},{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":100,"default":50}},{"name":"productId","in":"query","schema":{"type":"string","format":"uuid"}},{"name":"warehouseId","in":"query","schema":{"type":"string","format":"uuid"}}]
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/StockMovementPage"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: "createStockMovement"
+      summary: "Create movements"
+      description: "Requires inventory.stock.write. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. Transaction joins balance, immutable movement and audit. Same key and same body returns original movement; changed body returns 409. Insufficient stock fails without side effects."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"}]
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/StockMovementCreate"
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/StockMovement"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/companies/{companyId}/purchasing/suppliers":
+    get:
+      operationId: "listSuppliers"
+      summary: "Search company suppliers"
+      description: "Requires purchasing.supplier.read. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. Case-insensitive literal search over name/email; no invented name/email uniqueness."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"},{"name":"page","in":"query","schema":{"type":"integer","minimum":1,"maximum":1000000,"default":1}},{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":100,"default":20}},{"name":"search","in":"query","schema":{"type":"string","maxLength":200}},{"name":"status","in":"query","schema":{"type":"string","enum":["active","inactive"]}}]
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/SupplierPage"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: "createSupplier"
+      summary: "Register supplier"
+      description: "Requires purchasing.supplier.write. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. "
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"}]
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/SupplierCreate"
+      responses:
+        "201":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Supplier"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/companies/{companyId}/purchasing/suppliers/{supplierId}":
+    get:
+      operationId: "getSupplier"
+      summary: "Read supplier"
+      description: "Requires purchasing.supplier.read. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. "
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"},{"name":"supplierId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Supplier"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      operationId: "updateSupplier"
+      summary: "Edit supplier or active status"
+      description: "Requires purchasing.supplier.write. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. At least one mutable field plus expectedVersion; optional fields cannot be cleared. Business write and metadata-only audit are transactional."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"},{"name":"supplierId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/SupplierPatch"
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Supplier"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/companies/{companyId}/sales/orders":
+    get:
+      operationId: "listDraftSalesOrders"
+      summary: "List draft/cancelled sales orders"
+      description: "Requires sales.order.read. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. "
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"},{"name":"page","in":"query","schema":{"type":"integer","minimum":1,"maximum":1000000,"default":1}},{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":100,"default":20}},{"name":"status","in":"query","schema":{"type":"string","enum":["DRAFT","CANCELLED"]}},{"name":"customerId","in":"query","schema":{"type":"string","format":"uuid"}}]
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/DraftSalesOrderPage"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: "createDraftSalesOrder"
+      summary: "Create an idempotent sales draft"
+      description: "Requires sales.order.write. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. Requires active customer/product/warehouse in authorized company, checked through public application interfaces. Currency must equal company currency. Subtotal rounds each line half-up using integer arithmetic and currency minor units; summed minor units must fit MAX_SAFE_INTEGER. Same key/body returns existing order; changed body 409. No reservation, inventory reduction, confirmation, tax calculation or receivable is performed. Total and taxAmount remain null."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"}]
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/DraftSalesOrderCreate"
+      responses:
+        "201":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/DraftSalesOrder"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/companies/{companyId}/sales/orders/{orderId}":
+    get:
+      operationId: "getDraftSalesOrder"
+      summary: "Read order and current informational availability"
+      description: "Requires sales.order.read. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. Inactive/missing catalog references return null availability with explicit status; historical order remains readable."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"},{"name":"orderId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/DraftSalesOrderDetail"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/companies/{companyId}/sales/orders/{orderId}/cancel":
+    post:
+      operationId: "cancelDraftSalesOrder"
+      summary: "Cancel current draft"
+      description: "Requires sales.order.write. Live session and tenant membership required. Business company paths require an active company and explicit company membership; headers never grant access. Only DRAFT and current version can transition to CANCELLED; otherwise 409. No inventory release because drafts never reserve."
+      x-implementation-status: "implemented"
+      parameters: [{"$ref":"#/components/parameters/TenantIdHeader"},{"$ref":"#/components/parameters/CompanyIdPathParam"},{"name":"orderId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/DraftSalesOrderCancel"
+      responses:
+        "200":
+          description: "Successful operation"
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required: ["data","correlationId"]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/DraftSalesOrder"
+                  correlationId:
+                    type: "string"
+        "400":
+          description: "Invalid or protected input"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "Missing or expired session"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "Permission, tenant or company access denied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "Scoped resource not found"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Version, duplicate key or idempotency conflict"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: "Database or transaction failure; no success implied"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Error"
 tags:
   - name: Health
     description: Health check endpoints
