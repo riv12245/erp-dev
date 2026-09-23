@@ -24,8 +24,9 @@ export class MongoConnection {
 
     const mongoUri = this.configService.get('mongoUri');
 
+    let conn: Connection | undefined;
     try {
-      const conn = await createConnection(mongoUri, {
+      conn = createConnection(mongoUri, {
         dbName: this.configService.get('mongoDbName'),
         maxPoolSize: Number(process.env.MONGO_POOL_SIZE ?? 50),
         minPoolSize: Number(process.env.MONGO_MIN_POOL_SIZE ?? 5),
@@ -34,11 +35,12 @@ export class MongoConnection {
         authSource: 'admin',
         retryWrites: true,
         w: 'majority',
-      }).asPromise();
+      });
+      await conn.asPromise();
 
       this.conn = conn;
-      conn.on('error', (err) => {
-        console.error('MongoDB connection error:', err);
+      conn.on('error', () => {
+        console.error('MongoDB connection error');
       });
 
       conn.on('disconnected', () => {
@@ -47,9 +49,10 @@ export class MongoConnection {
 
       console.info('MongoDB connected successfully');
       return conn;
-    } catch (error) {
-      console.error('Failed to connect to MongoDB:', error);
-      throw error;
+    } catch {
+      await conn?.close().catch(() => console.error('MongoDB failed connection cleanup failed'));
+      console.error('MongoDB connection failed');
+      throw new Error('MongoDB connection failed');
     }
   }
 

@@ -47,6 +47,16 @@ describe('Event Handling', () => {
     expect(isValid).toBe(true);
   });
 
+  it('rejects events without a real handler instead of recording fake success', async () => {
+    const event: DomainEvent = {
+      id: uuidv4(), eventType: 'order.created', source: 'test',
+      data: { orderId: '123', customerId: '456', total: 99.99 }, timestamp: new Date(),
+      idempotencyKey: uuidv4(), correlationId: uuidv4(), version: 1,
+    };
+    await expect(dispatcher.dispatch(event)).rejects.toThrow('No handler registered');
+    expect(await idempotencyService.has(event.idempotencyKey)).toBe(false);
+  });
+
   it('should reject invalid domain events', async () => {
     const event: DomainEvent = {
       id: uuidv4(),

@@ -9,6 +9,7 @@ interface ProcessorOptions { readonly owner: string; readonly pollIntervalMs?: n
 export class OutboxProcessor {
   private static instance: OutboxProcessor;
   private running = false;
+  private stopping = false;
   private timer?: ReturnType<typeof setTimeout>;
   private active?: Promise<void>;
   private readonly logger = createLogger('outbox-worker');
@@ -41,6 +42,7 @@ export class OutboxProcessor {
   async start(): Promise<void> {
     if (this.running) return;
     this.running = true;
+    this.stopping = false;
     try { await this.processOutbox(); } catch (error) { this.running = false; throw error; }
     this.schedule();
   }
@@ -49,13 +51,14 @@ export class OutboxProcessor {
     if (!this.running) return;
     this.timer = setTimeout(async () => {
       try { await this.processOutbox(); }
-      catch (error) { this.logger.error('Outbox poll failed', { error: error instanceof Error ? error.message : 'Unknown error' }); }
+      catch { this.logger.error('Outbox poll failed'); }
       this.schedule();
     }, this.pollIntervalMs);
   }
 
   async stop(): Promise<void> {
     this.running = false;
+    this.stopping = true;
     if (this.timer) clearTimeout(this.timer);
     await this.active;
   }
@@ -70,6 +73,7 @@ export class OutboxProcessor {
     const repository = await this.repository();
     const publisher = await this.publisher();
     for (let i = 0; i < this.batchSize; i++) {
+      if (this.stopping) break;
       // Claim only the event being handled so queued work cannot exhaust its lease.
       const [claim] = await repository.claimBatch(1, this.options.owner);
       if (!claim) break;
@@ -78,8 +82,8 @@ export class OutboxProcessor {
         await publisher.publish(claim);
         const acknowledged = await repository.markPublished(claim);
         if (!acknowledged) this.logger.warn('Delivery completed after lease ownership changed', context);
-      } catch (error) {
-        await repository.markFailed(claim, error instanceof Error ? error.message : 'Delivery failed');
+      } catch {
+        await repository.markFailed(claim, 'Delivery failed');
         this.logger.warn('Delivery failed; event retained for retry', context);
       }
     }

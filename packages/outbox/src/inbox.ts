@@ -11,6 +11,7 @@ const schema = new mongoose.Schema({
   status: { type: String, enum: ['pending'], default: 'pending' },
 }, { collection: 'event_inbox' });
 schema.index({ tenantId: 1, eventId: 1 }, { unique: true });
+schema.index({ eventName: 1, eventVersion: 1, receivedAt: 1, eventId: 1 });
 
 /** Durable delivery only. Business handling is explicitly still pending in the inbox. */
 export class MongoInboxPublisher implements OutboxPublisher {
