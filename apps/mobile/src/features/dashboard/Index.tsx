@@ -3,7 +3,7 @@ import { Card, Button } from '@erp/ui';
 import { StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 export function DashboardScreen(): React.JSX.Element {
-  const { user, logout } = useAuth();
+  const { user, logout, logoutAll } = useAuth();
 
   const handleLogout = () => {
     logout();
@@ -14,6 +14,7 @@ export function DashboardScreen(): React.JSX.Element {
       <Card padded>
         <Text style={styles.title}>Dashboard</Text>
         <Text style={styles.subtitle}>Welcome{user?.name ? `, ${user.name}` : ''}.</Text>
+        <Button label="Sign out all devices" variant="secondary" onPress={() => { void logoutAll(); }} />
         <Button label="Sign out" variant="secondary" onPress={handleLogout} />
       </Card>
     </View>

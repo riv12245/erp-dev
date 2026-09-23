@@ -1,6 +1,18 @@
 import React from 'react';
+import { AppState } from 'react-native';
+import { useAuthStore } from './auth-store';
 
 export function AuthProvider({ children }: { readonly children: React.ReactNode }): React.JSX.Element {
+  const [ready, setReady] = React.useState(false);
+  React.useEffect(() => {
+    let mounted = true;
+    void useAuthStore.getState().restore().finally(() => { if (mounted) setReady(true); });
+    const listener = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void useAuthStore.getState().restore();
+    });
+    return () => { mounted = false; listener.remove(); };
+  }, []);
+  if (!ready) return <></>;
   return <>{children}</>;
 }
 

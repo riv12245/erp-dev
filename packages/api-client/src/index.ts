@@ -1,4 +1,6 @@
 import { createApiClient } from './client.js';
+export { createSessionController } from './session.js';
+export type { Session, SessionStorage } from './session.js';
 import { ApiClientError, UnauthorizedError, ForbiddenError, TimeoutError, NetworkError } from './errors.js';
 import { normalizeError, buildErrorFromResponse, createCorrelationId } from './errors.js';
 

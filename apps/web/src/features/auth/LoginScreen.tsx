@@ -8,8 +8,9 @@ export function LoginScreen(): React.JSX.Element {
   const [email, setEmail] = React.useState('');
   const [tenantId, setTenantId] = React.useState('');
   const [password, setPassword] = React.useState('');
-  const { login, isLoading, error } = useAuth();
+  const { login, isLoading, error, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  React.useEffect(() => { if (isAuthenticated) navigate('/', { replace: true }); }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (event?: React.FormEvent) => {
     event?.preventDefault();

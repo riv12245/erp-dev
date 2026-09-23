@@ -9,4 +9,4 @@ export function configureApi(baseUrl: string): void {
 }
 
 export function getApiBaseUrl(): string { return apiBaseUrl; }
-export const authClient = createApiClient({ baseUrl: getApiBaseUrl, defaultTimeoutMs: 30_000 });
+export const authClient = createApiClient({ baseUrl: getApiBaseUrl, defaultTimeoutMs: 30_000, headers: { 'x-session-client': 'native' } });
