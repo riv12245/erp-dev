@@ -23,6 +23,7 @@
     "test:e2e": "vitest run test/core-iam.test.ts test/seed.test.ts test/health.test.ts"
   },
   "dependencies": {
+    "@erp/contracts": "*",
     "@erp/outbox": "*",
     "@erp/auth": "*",
     "@erp/permissions": "*",

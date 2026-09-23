@@ -1,13 +1,13 @@
 import http from 'node:http';
 import { AddressInfo } from 'node:net';
 import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryServer, MongoMemoryReplSet } from 'mongodb-memory-server';
 import { vi } from 'vitest';
 
 export interface TestHarness {
   readonly server: http.Server;
   readonly conn: mongoose.Connection;
-  readonly mongo: MongoMemoryServer;
+  readonly mongo: MongoMemoryServer | MongoMemoryReplSet;
   readonly baseUrl: string;
   readonly stop: () => Promise<void>;
 }
@@ -47,7 +47,7 @@ export async function apiRequest(baseUrl: string, path: string, options: Request
  * file starts from a clean config + empty database. Environment variables
  * must be set BEFORE src modules load, hence the dynamic imports.
  */
-export async function setupApi(env: Record<string, string> = {}): Promise<TestHarness> {
+export async function setupApi(env: Record<string, string> = {}, replicaSet = false): Promise<TestHarness> {
   vi.resetModules();
 
   const merged: Record<string, string> = {
@@ -67,7 +67,7 @@ export async function setupApi(env: Record<string, string> = {}): Promise<TestHa
     process.env[key] = value;
   }
 
-  const mongo = await MongoMemoryServer.create();
+  const mongo = replicaSet ? await MongoMemoryReplSet.create({ replSet: { count: 1 } }) : await MongoMemoryServer.create();
   const uri = mongo.getUri();
   // Override any inherited Atlas/production URI: tests only use their own mongod.
   process.env.MONGODB_URI = uri;

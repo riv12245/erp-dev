@@ -12,6 +12,7 @@ import { AppError } from './shared/errors/app-error.js';
 import { IdentityResolver } from './shared/middleware/auth.middleware.js';
 import { registerAuthRoutes } from './platform/auth/auth.routes.js';
 import { registerTenantRoutes } from './platform/tenancy/tenancy.routes.js';
+import { registerCompanyRoutes } from './platform/tenancy/company.routes.js';
 import { registerAuditRoutes } from './platform/audit/audit.routes.js';
 import { registerHealthRoutes } from './health.routes.js';
 import { registerMasterDataRoutes } from './modules/master-data/master-data.routes.js';
@@ -63,6 +64,7 @@ export function createApp(): AppContext {
   const protectedApi = express.Router();
   protectedApi.use(tenantOnly, protect);
   registerTenantRoutes(protectedApi);
+  registerCompanyRoutes(protectedApi);
   registerAuditRoutes(protectedApi);
   registerMasterDataRoutes(protectedApi);
   registerAllModuleRoutes(protectedApi);
