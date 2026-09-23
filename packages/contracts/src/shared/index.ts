@@ -7,3 +7,5 @@ export type {
   KeyValuePair,
   SoftDelete,
 } from "./types.js";
+export type { Customer, CustomerStatus, CreateCustomerRequest, UpdateCustomerRequest, CustomerListQuery, CustomerListResult } from './crm.js';
+export type { Supplier, SupplierStatus, CreateSupplierRequest, UpdateSupplierRequest, SupplierListQuery, SupplierListResult } from './supplier.js';

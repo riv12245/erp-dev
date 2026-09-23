@@ -1,18 +1,10 @@
 ﻿import { Router, Request, Response } from 'express';
 import { asyncHandler, ok } from '../../shared/index.js';
 import { getConnection } from '../../config/database.js';
+import { registerCustomerRoutes } from './presentation/customer-routes.js';
+export { CustomerService } from './application/customer-service.js';
+export type { Customer } from '@erp/contracts/shared';
 
-export interface Customer {
-  readonly customerId: string;
-  readonly tenantId: string;
-  readonly companyId: string;
-  readonly type: 'company' | 'individual';
-  readonly name: string;
-  readonly email?: string;
-  readonly phone?: string;
-  readonly taxId?: string;
-  readonly status: 'active' | 'inactive' | 'blocked';
-}
 
 export interface DealStage {
   readonly stageId: string;
@@ -34,8 +26,9 @@ export interface Deal {
 export const CrmModule = { id: 'crm', displayName: 'CRM' } as const;
 
 export function registerCrmRoutes(router: Router): void {
+  registerCustomerRoutes(router);
   router.get('/crm/health', asyncHandler(async (_req: Request, res: Response) => {
     const conn = getConnection();
-    ok(res, { module: 'crm', status: 'skeleton', db: conn?.readyState === 1 ? 'up' : 'down' });
+    ok(res, { module: 'crm', status: 'active', db: conn?.readyState === 1 ? 'up' : 'down' });
   }));
 }
