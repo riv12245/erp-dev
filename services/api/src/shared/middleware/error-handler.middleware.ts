@@ -19,8 +19,15 @@ export interface ErrorResponseBody {
 export function errorHandler(error: unknown, req: Request, res: Response, _next: NextFunction): void {
   const correlationId = req.correlationId;
   const body: ErrorResponseBody = { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' }, correlationId };
+  const parseError = error as { type?: unknown } | null;
+  if (parseError?.type === 'entity.parse.failed' || parseError?.type === 'entity.too.large') {
+    body.error = { code: 'VALIDATION_ERROR', message: parseError.type === 'entity.too.large' ? 'Request body too large' : 'Malformed JSON body' };
+    res.status(parseError.type === 'entity.too.large' ? 413 : 400).json(body);
+    return;
+  }
 
   if (error instanceof AppError) {
+    if (error.statusCode === 401 || error.statusCode === 403) console.warn('[access-denied]', { correlationId, code: error.code });
     body.error = { code: error.code, message: error.message, details: error.details };
     res.status(error.statusCode).json(body);
     return;

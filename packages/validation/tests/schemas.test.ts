@@ -24,8 +24,9 @@ describe('auth schemas', () => {
     expect(weak.errors[0]).toMatch(/password/);
 
     const empty = validateRegister({ email: 'u@a.io', password: 'Str0ng1' });
-    expect(empty.errors).toContain('firstName is required');
-    expect(empty.errors).toContain('lastName is required');
+    expect(empty.errors).toContain('firstName must contain 1 to 100 characters');
+    expect(empty.errors).toContain('lastName must contain 1 to 100 characters');
+    expect(validateRegister({ email: 'u@a.io', password: 'Str0ng123', firstName: 'x'.repeat(101), lastName: 'User' }).ok).toBe(false);
   });
 });
 

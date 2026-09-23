@@ -55,11 +55,10 @@ export async function setupApi(env: Record<string, string> = {}): Promise<TestHa
     PORT: '0',
     HOST: '127.0.0.1',
     JWT_SECRET: 'test-secret-0123456789abcdef0123456789abcdef',
-    JWT_REFRESH_SECRET: 'test-refresh-secret-0123456789abcdef',
+    JWT_REFRESH_EXPIRES_IN: '7d',
     JWT_EXPIRES_IN: '15m',
     RATE_LIMIT_MAX: '100',
     RATE_LIMIT_WINDOW_MS: '60000',
-    BCRYPT_ROUNDS: '4',
     TENANT_HEADER: 'x-tenant-id',
     SEED_DEV: 'false',
     ...env,
@@ -70,6 +69,9 @@ export async function setupApi(env: Record<string, string> = {}): Promise<TestHa
 
   const mongo = await MongoMemoryServer.create();
   const uri = mongo.getUri();
+  // Override any inherited Atlas/production URI: tests only use their own mongod.
+  process.env.MONGODB_URI = uri;
+  process.env.MONGODB_DB_NAME = 'erp_test';
 
   const { createApp } = await import('../src/app.js');
   const { connectDatabase, disconnectDatabase } = await import('../src/config/database.js');

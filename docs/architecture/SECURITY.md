@@ -1,4 +1,4 @@
-> **Estado 2026-09-22:** el texto histórico de abajo describe objetivos de diseño, no una certificación de implementación. La fuente actual verificada es [CORE_IAM_TENANCY_AUDIT](../CORE_IAM_TENANCY_AUDIT.md) y el [contrato API](../../openapi/README.md). En concreto: JWT HS256 sin permissions, IAM resuelto en servidor, PBKDF2, registro sin tenant, roles demo ADMIN/SALES, refresh/MFA/gestión IAM pendientes; no se implementan todavía todos los controles descritos abajo.
+> **Estado 2026-09-22:** el texto histórico de abajo describe objetivos de diseño, no una certificación de implementación. La fuente actual es [FOUNDATION_EXECUTION](FOUNDATION_EXECUTION.md), [SESSION_INTEGRATION](SESSION_INTEGRATION.md) y el [contrato API](../../openapi/README.md). Sesiones Mongo, refresh opaco con hash/rotación y revocación están implementados; MFA y gestión IAM siguen pendientes. Se conservan PBKDF2, registro sin tenant y roles ADMIN/SALES. CSRF web usa cookie Strict más Origin exacto, no el mecanismo de tokens del diseño histórico. Quedan 20 alertas npm y validación en dispositivo; no hay certificación de producción.
 
 # Security Documentation
 

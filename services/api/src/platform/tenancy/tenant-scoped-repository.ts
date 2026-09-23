@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { TenantContext } from '../../shared/types/index.js';
 import { TenantContextMissingError } from '../../shared/errors/tenant-error.js';
+import { AppError } from '../../shared/errors/app-error.js';
 
 /**
  * Base tenant-scoped repository. EVERY business query MUST go through
@@ -29,6 +30,7 @@ export abstract class TenantScopedRepository {
   }
 
   async findMany(extra: mongoose.FilterQuery<unknown> = {}, limit = 100): Promise<unknown[]> {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw AppError.validation('Limit must be between 1 and 100');
     return this.model.find(this.tenantFilter(extra)).limit(limit).exec();
   }
 
@@ -49,13 +51,17 @@ export abstract class TenantScopedRepository {
     expectedVersion: number,
     updates: Record<string, unknown>,
   ): Promise<{ updated: boolean; currentVersion?: number }> {
+    if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 0 || expectedVersion >= Number.MAX_SAFE_INTEGER) throw AppError.validation('Invalid expected version');
+    if (Object.keys(updates).some(key => key.startsWith('$') || key.includes('.') || ['_id', '__v', 'createdAt', 'createdBy', 'version'].includes(key))) {
+      throw AppError.validation('Protected update field');
+    }
     const result = await this.model.updateOne(
       {
         $and: [this.tenantFilter() as mongoose.FilterQuery<unknown>, { _id: id } as mongoose.FilterQuery<unknown>, { version: expectedVersion } as mongoose.FilterQuery<unknown>],
       },
       { $set: { ...updates, tenantId: this.requireTenantId(), version: expectedVersion + 1, updatedAt: new Date() } },
     );
-    return { updated: result.matchedCount === 1, currentVersion: expectedVersion + 1 };
+    return result.matchedCount === 1 ? { updated: true, currentVersion: expectedVersion + 1 } : { updated: false };
   }
 
   /** Hard delete guarded by tenant scope. Prefer soft-delete in business domains. */

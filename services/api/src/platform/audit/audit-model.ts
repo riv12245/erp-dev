@@ -39,6 +39,8 @@ export const auditSchema = new mongoose.Schema<AuditEntryAttributes>(
 
 export interface AuditDocument extends mongoose.Document, AuditEntryAttributes {}
 
+auditSchema.index({ tenantId: 1, timestamp: -1 });
+
 export function getAuditModel(connection: mongoose.Connection): mongoose.Model<AuditDocument> {
   return (connection.models.AuditEntry as unknown as mongoose.Model<AuditDocument>) ?? (connection.model('AuditEntry', auditSchema) as unknown as mongoose.Model<AuditDocument>);
 }

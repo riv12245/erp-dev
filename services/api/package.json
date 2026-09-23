@@ -19,7 +19,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:unit": "vitest run --reporter=verbose",
-    "test:integration": "vitest run test/auth.test.ts test/auth-unit.test.ts test/tenancy.test.ts test/tenant-scoped-repository.test.ts test/master-data.test.ts test/audit.test.ts test/outbox.test.ts",
+    "test:integration": "vitest run test/auth.test.ts test/auth-unit.test.ts test/sessions.test.ts test/http-safety.test.ts test/tenancy.test.ts test/tenant-scoped-repository.test.ts test/master-data.test.ts test/audit.test.ts test/outbox.test.ts",
     "test:e2e": "vitest run test/core-iam.test.ts test/seed.test.ts test/health.test.ts"
   },
   "dependencies": {

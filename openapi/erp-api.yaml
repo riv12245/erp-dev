@@ -3,7 +3,7 @@ info:
   title: ERP Platform API
   description: >-
     Modular monolith ERP. Operations marked x-implementation-status: roadmap are contracts only and are NOT implemented.
-    Public routes: health, status, register and login. Login requires x-tenant-id. Protected routes require JWT plus
+    Public routes: health, status, register and login. Refresh/logout require a refresh credential. Login requires x-tenant-id. Protected routes require JWT plus
     matching tenant context and an active membership. No default tenant. Responses use data/meta/correlationId or
     error/correlationId, without a success flag. Company/branch headers are contextual metadata, not independently
     authorized scopes.
@@ -27,8 +27,13 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: >-
-        HS256 access JWT with sub, tenantId, roles, iat and exp. Effective permissions and identity are resolved from
-        IAM on every request. Refresh/logout are roadmap.
+        HS256 access JWT with sub, sid, tenantId, roles, iat and exp. Session, user and membership are checked in
+        MongoDB on every request. Revocation denies subsequent checks immediately; in-flight work is not rolled back.
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: erp_refresh
+      description: HttpOnly SameSite Strict cookie scoped to /api/v1/auth; Secure in production. Web writes require an exact trusted Origin and x-session-client web.
   schemas:
     Error:
       type: object
@@ -77,6 +82,7 @@ components:
             - PERMISSION_DENIED
             - TENANT_CONTEXT_MISSING
             - INTERNAL_ERROR
+            - RATE_LIMITED
         message:
           type: string
           description: Human-readable error message
@@ -518,10 +524,24 @@ components:
           required:
             - accessToken
             - user
+            - sessionId
+            - tenantId
+            - expiresIn
           properties:
             accessToken:
               type: string
               description: Bearer token; never log it
+            refreshToken:
+              type: string
+              description: Opaque rotating credential, native transport only; never log it. Web receives an HttpOnly cookie instead.
+            sessionId:
+              type: string
+              format: uuid
+            tenantId:
+              type: string
+            expiresIn:
+              type: integer
+              description: Access token lifetime in seconds
             user:
               type: object
               required:
@@ -568,27 +588,7 @@ components:
           type: string
           description: Valid refresh token
     RefreshTokenResponse:
-      type: object
-      required:
-        - success
-        - data
-        - correlationId
-      properties:
-        success:
-          type: boolean
-          example: true
-        data:
-          type: object
-          properties:
-            accessToken:
-              type: string
-            refreshToken:
-              type: string
-            expiresIn:
-              type: integer
-        correlationId:
-          type: string
-          format: uuid
+      $ref: '#/components/schemas/LoginResponse'
     LogoutRequest:
       type: object
       required:
@@ -599,15 +599,15 @@ components:
     LogoutResponse:
       type: object
       required:
-        - success
+        - data
         - correlationId
       properties:
-        success:
-          type: boolean
-          example: true
         data:
           type: object
-          additionalProperties: true
+          required: [revoked]
+          properties:
+            revoked:
+              const: true
         correlationId:
           type: string
           format: uuid
@@ -958,6 +958,15 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   parameters:
+    SessionClient:
+      name: x-session-client
+      in: header
+      required: false
+      schema:
+        type: string
+        enum: [web, native]
+        default: native
+      description: Web requires credentials include and exact CORS_ORIGIN Origin; native rejects requests with a browser Origin.
     TenantIdPathParam:
       name: tenantId
       in: path
@@ -1129,9 +1138,9 @@ paths:
         '429':
           description: Global HTTP rate limiter
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/Error'
       x-implementation-status: implemented
   /health/ready:
     get:
@@ -1151,9 +1160,9 @@ paths:
         '429':
           description: Global HTTP rate limiter
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/Error'
         '503':
           description: MongoDB not ready
           content:
@@ -1179,9 +1188,9 @@ paths:
         '429':
           description: Global HTTP rate limiter
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/Error'
       x-implementation-status: implemented
   /api/v1/auth/login:
     post:
@@ -1191,7 +1200,8 @@ paths:
       summary: User login
       description: >-
         Validate credentials and active user, selected active tenant and active membership. Roles come from that
-        membership. Returns only an access token; no implicit tenant assignment.
+        membership. Creates a persistent session with absolute refresh expiry and a bounded rotation count.
+        Native receives an opaque refresh token; web receives HttpOnly cookie only. No implicit tenant assignment.
       security: []
       requestBody:
         required: true
@@ -1227,12 +1237,13 @@ paths:
         '429':
           description: Global HTTP rate limiter
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/Error'
       x-implementation-status: implemented
       parameters:
         - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/SessionClient'
   /api/v1/auth/register:
     post:
       operationId: register
@@ -1290,20 +1301,28 @@ paths:
         '429':
           description: Global HTTP rate limiter
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/Error'
       x-implementation-status: implemented
   /api/v1/auth/refresh:
     post:
       operationId: refreshToken
       tags:
         - Authentication
-      summary: 'Roadmap: Refresh access token'
-      description: NOT IMPLEMENTED. Exchanges a valid refresh token for a new access token.
-      security: []
+      summary: Rotate a persistent session
+      description: >-
+        Atomically rotates the refresh credential. Known reuse revokes the session family, including competing refreshes.
+        Tenant is recovered from the session; no tenant header is required. Absolute expiry is not extended.
+        Native sends JSON refreshToken without Origin. Web sends cookie, trusted Origin and x-session-client web, without JSON credentials.
+      security:
+        - refreshCookie: []
+        - {}
+      parameters:
+        - $ref: '#/components/parameters/SessionClient'
       requestBody:
-        required: true
+        required: false
+        description: Required for native transport only
         content:
           application/json:
             schema:
@@ -1322,23 +1341,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Refresh token revoked
+          description: Origin, tenant or membership denied
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-      x-implementation-status: roadmap
+      x-implementation-status: implemented
   /api/v1/auth/logout:
     post:
       operationId: logout
       tags:
         - Authentication
-      summary: 'Roadmap: User logout'
-      description: NOT IMPLEMENTED. Invalidates the refresh token and logs the user out.
+      summary: Revoke the current session
+      description: Idempotently revokes a session using its current or previously rotated credential and clears the browser cookie. Same transport and Origin policy as refresh.
       security:
-        - bearerAuth: []
+        - refreshCookie: []
+        - {}
+      parameters:
+        - $ref: '#/components/parameters/SessionClient'
       requestBody:
-        required: true
+        required: false
+        description: Required for native transport only
         content:
           application/json:
             schema:
@@ -1356,7 +1379,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-      x-implementation-status: roadmap
+        '403':
+          description: Origin denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-implementation-status: implemented
+  /api/v1/auth/logout-all:
+    post:
+      operationId: logoutAll
+      tags: [Authentication]
+      summary: Revoke all sessions of the authenticated global user
+      description: Increments the user session epoch, fencing existing sessions in every tenant and concurrent issuance from an older epoch.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+      responses:
+        '200':
+          description: All prior sessions revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      x-implementation-status: implemented
   /api/v1/tenants:
     get:
       operationId: listTenants
@@ -1496,9 +1547,9 @@ paths:
         '429':
           description: Global HTTP rate limiter
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/Error'
       x-implementation-status: implemented
     patch:
       operationId: updateTenant
@@ -2346,9 +2397,9 @@ paths:
         '429':
           description: Global HTTP rate limiter
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/Error'
       x-implementation-status: implemented
   /api/v1/auth/me:
     get:
@@ -2414,9 +2465,9 @@ paths:
         '429':
           description: Global HTTP rate limiter
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/Error'
       x-implementation-status: implemented
       parameters:
         - $ref: '#/components/parameters/TenantIdHeader'
@@ -2472,9 +2523,9 @@ paths:
         '429':
           description: Global HTTP rate limiter
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/Error'
       x-implementation-status: implemented
     post:
       operationId: upsertCountry
@@ -2518,9 +2569,9 @@ paths:
         '429':
           description: Global HTTP rate limiter
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/Error'
       x-implementation-status: implemented
       parameters:
         - $ref: '#/components/parameters/TenantIdHeader'
@@ -2598,9 +2649,9 @@ paths:
         '429':
           description: Global HTTP rate limiter
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/Error'
       x-implementation-status: implemented
   /api/v1/audit/{entryId}:
     get:
@@ -2698,9 +2749,9 @@ paths:
         '429':
           description: Global HTTP rate limiter
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/Error'
 tags:
   - name: Health
     description: Health check endpoints
