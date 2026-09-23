@@ -1,4 +1,5 @@
 import React from 'react';
+import { BusinessPermissionProvider } from './business-permission-provider';
 import { AppState } from 'react-native';
 import { useAuthStore } from './auth-store';
 
@@ -21,5 +22,5 @@ export function TenantProvider({ children }: { readonly children: React.ReactNod
 }
 
 export function PermissionProvider({ children }: { readonly children: React.ReactNode }): React.JSX.Element {
-  return <>{children}</>;
+  return <BusinessPermissionProvider>{children}</BusinessPermissionProvider>;
 }

@@ -6,6 +6,7 @@ import { DashboardScreen } from '../features/dashboard/Index';
 import { CRMScreen } from '../features/crm/Index';
 import { SalesScreen } from '../features/sales/Index';
 import { InventoryScreen } from '../features/inventory/Index';
+import { PurchasingScreen } from '../features/purchasing/Index';
 import { FinanceScreen } from '../features/finance/Index';
 import { ProtectedRoute } from '../permissions/PermissionGate';
 
@@ -21,6 +22,7 @@ export function App(): React.JSX.Element {
               <Route path="/crm" element={<ProtectedRoute><CRMScreen /></ProtectedRoute>} />
               <Route path="/sales" element={<ProtectedRoute><SalesScreen /></ProtectedRoute>} />
               <Route path="/inventory" element={<ProtectedRoute><InventoryScreen /></ProtectedRoute>} />
+              <Route path="/purchasing" element={<ProtectedRoute><PurchasingScreen /></ProtectedRoute>} />
               <Route path="/finance" element={<ProtectedRoute><FinanceScreen /></ProtectedRoute>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

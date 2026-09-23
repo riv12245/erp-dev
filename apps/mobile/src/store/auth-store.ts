@@ -21,11 +21,12 @@ interface AuthState {
   readonly sessionEpoch: () => number;
 }
 const emptySession = { user: null, accessToken: null, tenantId: null, isAuthenticated: false, isLoading: false, error: null };
-export const useAuthStore = create<AuthState>((set) => {
+export const useAuthStore = create<AuthState>((set, get) => {
   const controller = createSessionController({
     client: authClient, native: true, storage: sessionStorage,
     changed: (session, isLoading, error) => {
-      usePermissionStore.getState().clear();
+      const previous = get();
+      if (!session || previous.tenantId !== session.tenantId || previous.user?.id !== session.user.userId) usePermissionStore.getState().clear();
       if (session) useTenantStore.getState().setTenantId(session.tenantId);
       else useTenantStore.getState().clearTenant();
       set({ ...emptySession, isLoading, error, ...(session ? {
