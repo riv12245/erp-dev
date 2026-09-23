@@ -8,6 +8,7 @@
     "services/*"
   ],
   "scripts": {
+    "deps:prepare": "npm rebuild esbuild@0.28.2 mongodb-memory-server@10.4.3 --ignore-scripts=false --foreground-scripts --no-audit",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "dev:api": "turbo run dev --filter=@erp/api",
