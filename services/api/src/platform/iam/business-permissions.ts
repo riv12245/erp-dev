@@ -5,4 +5,6 @@ export const BUSINESS_PERMISSIONS = [
   'inventory.product.read', 'inventory.product.write',
   'inventory.warehouse.read', 'inventory.warehouse.write',
   'inventory.stock.read', 'inventory.stock.write',
+  'sales.order.read', 'sales.order.write',
+  'purchasing.supplier.read', 'purchasing.supplier.write',
 ] as const;

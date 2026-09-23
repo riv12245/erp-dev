@@ -6,7 +6,7 @@
  * Rules enforced (violations exit 1):
  *   1. domain dirs under modules must NOT import the module's infrastructure (domain stays pure).
  *   2. infrastructure dirs under modules must NOT import the module's application (layer inversion).
- *   3. modules/A must NOT import modules/B where A != B (no cross-module coupling).
+ *   3. modules/A may only import modules/B through B's public index (application contracts).
  *   4. platform/ must NOT import modules/ (platform is the stable base layer).
  *   5. shared/ must NOT import modules/ or @erp/* packages (shared stays glue-free).
  *   6. No God Store / God Service / God Repository classes.
@@ -91,9 +91,15 @@ for (const file of apiFiles) {
       warnings.push(`${esc(relative(ROOT, file))} has deep relative imports`);
     }
 
-    // modules/<A> -> modules/<B>
-    if (info.layer === 'modules' && isRel && /modules\//.test(spec)) {
-      violations.push(`${esc(relative(ROOT, file))} module ${info.moduleName} imports across modules: ${spec}`);
+    // Resolve the actual destination: ../../crm/index.js is a public contract,
+    // ../../crm/infrastructure/model.js is a forbidden private dependency.
+    if (info.layer === 'modules' && isRel) {
+      const target = classify(normalize(join(dirname(file), spec)));
+      const resolved = esc(relative(API_SRC, normalize(join(dirname(file), spec))));
+      if (target.layer === 'modules' && target.moduleName !== info.moduleName
+        && !/^modules\/[^/]+\/index\.(?:js|ts)$/.test(resolved)) {
+        violations.push(`${esc(relative(ROOT, file))} imports private module infrastructure: ${spec}`);
+      }
     }
 
     // platform -> modules

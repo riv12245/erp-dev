@@ -64,7 +64,7 @@ export interface QuoteItem {
 
 export type QuoteStatus = "draft" | "sent" | "approved" | "rejected" | "expired";
 
-/** A sales order */
+/** Legacy roadmap projection, not the persisted draft order API. Use DraftSalesOrderDTO for implemented orders. */
 export interface Order {
   readonly id: string;
   readonly quoteId: string | null;

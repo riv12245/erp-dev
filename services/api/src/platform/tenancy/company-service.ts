@@ -22,7 +22,7 @@ export function parseCompanyInput(value: unknown): CompanyInput {
     if (typeof field !== 'string' || !field.trim() || field.length > 200) throw AppError.validation(`Invalid ${key}`);
     result[key] = field.trim();
   }
-  if (!/^[A-Z]{3}$/.test(result.defaultCurrency)) throw AppError.validation('Currency must be an uppercase three-letter code');
+  if (!/^[A-Z]{3}$/.test(result.defaultCurrency) || !Intl.supportedValuesOf('currency').includes(result.defaultCurrency)) throw AppError.validation('Currency must be a supported uppercase ISO code');
   try { new Intl.DateTimeFormat('en', { timeZone: result.defaultTimezone }); }
   catch { throw AppError.validation('Invalid timezone'); }
   return result as CompanyInput;

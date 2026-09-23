@@ -10,7 +10,7 @@ export async function requireCompanyAccess(
   connection: mongoose.Connection, context: TenantContext, userId: string, companyId: string,
 ): Promise<CompanyScope> {
   if (!context?.tenantId || !userId) throw AppError.unauthorized();
-  if (typeof companyId !== 'string' || !/^[a-f0-9-]{36}$/i.test(companyId)) throw AppError.validation('Invalid company identifier');
+  if (typeof companyId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(companyId)) throw AppError.validation('Invalid company identifier');
   if (context.companyId && context.companyId !== companyId) throw AppError.forbidden('Company context mismatch');
   if (context.branchId) throw AppError.validation('Branch scope is not supported for this operation');
   const [company, access, membership] = await Promise.all([
