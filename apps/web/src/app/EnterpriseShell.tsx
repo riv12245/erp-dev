@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useAuthStore } from '../store/auth-store';
 import './enterprise.css';
 
 type IconName = 'grid' | 'users' | 'cart' | 'truck' | 'box' | 'wallet' | 'search' | 'menu' | 'bell' | 'chevron' | 'logout' | 'settings' | 'arrow' | 'close';
@@ -37,7 +38,8 @@ export function EnterpriseShell(): React.JSX.Element {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
   const [searchOpen, setSearchOpen] = React.useState(false);
-  const { user, tenantId, logout } = useAuth();
+  const { user, logout } = useAuth();
+  const tenantId = useAuthStore(state => state.tenantId);
   const location = useLocation();
   const navigate = useNavigate();
   const current = navigation.find(item => item.path === location.pathname);
