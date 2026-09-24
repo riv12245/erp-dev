@@ -22,6 +22,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.background.elevated,
     borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border.default,
   },
   padded: {
     padding: spacing.lg,
