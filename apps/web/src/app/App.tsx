@@ -9,6 +9,7 @@ import { InventoryScreen } from '../features/inventory/Index';
 import { PurchasingScreen } from '../features/purchasing/Index';
 import { FinanceScreen } from '../features/finance/Index';
 import { ProtectedRoute } from '../permissions/PermissionGate';
+import { EnterpriseShell } from './EnterpriseShell';
 
 export function App(): React.JSX.Element {
   return (
@@ -18,12 +19,14 @@ export function App(): React.JSX.Element {
           <PermissionProvider>
             <Routes>
               <Route path="/auth/login" element={<LoginScreen />} />
-              <Route path="/" element={<ProtectedRoute><DashboardScreen /></ProtectedRoute>} />
-              <Route path="/crm" element={<ProtectedRoute><CRMScreen /></ProtectedRoute>} />
-              <Route path="/sales" element={<ProtectedRoute><SalesScreen /></ProtectedRoute>} />
-              <Route path="/inventory" element={<ProtectedRoute><InventoryScreen /></ProtectedRoute>} />
-              <Route path="/purchasing" element={<ProtectedRoute><PurchasingScreen /></ProtectedRoute>} />
-              <Route path="/finance" element={<ProtectedRoute><FinanceScreen /></ProtectedRoute>} />
+              <Route element={<ProtectedRoute><EnterpriseShell /></ProtectedRoute>}>
+                <Route path="/" element={<DashboardScreen />} />
+                <Route path="/crm" element={<CRMScreen />} />
+                <Route path="/sales" element={<SalesScreen />} />
+                <Route path="/inventory" element={<InventoryScreen />} />
+                <Route path="/purchasing" element={<PurchasingScreen />} />
+                <Route path="/finance" element={<FinanceScreen />} />
+              </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </PermissionProvider>
