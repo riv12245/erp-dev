@@ -38,6 +38,17 @@ export function EnterpriseShell(): React.JSX.Element {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
   const [searchOpen, setSearchOpen] = React.useState(false);
+  const searchInput = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault(); searchInput.current?.focus(); setSearchOpen(true);
+      }
+      if (event.key === 'Escape') setSearchOpen(false);
+    };
+    document.addEventListener('keydown', handleShortcut);
+    return () => document.removeEventListener('keydown', handleShortcut);
+  }, []);
   const { user, logout } = useAuth();
   const tenantId = useAuthStore(state => state.tenantId);
   const location = useLocation();
@@ -72,7 +83,7 @@ export function EnterpriseShell(): React.JSX.Element {
         </div>
         <div className="erp-module-search">
           <WorkspaceIcon name="search" size={17}/>
-          <input value={query} onFocus={() => setSearchOpen(true)} onChange={event => { setQuery(event.target.value); setSearchOpen(true); }} onKeyDown={event => { if (event.key === 'Escape') setSearchOpen(false); if (event.key === 'Enter' && matches[0]) navigate(matches[0].path); }} aria-label="Buscar módulos" placeholder="Buscar módulo..." autoComplete="off"/>
+          <input ref={searchInput} value={query} onFocus={() => setSearchOpen(true)} onChange={event => { setQuery(event.target.value); setSearchOpen(true); }} onKeyDown={event => { if (event.key === 'Escape') setSearchOpen(false); if (event.key === 'Enter' && matches[0]) navigate(matches[0].path); }} aria-label="Buscar módulos" placeholder="Buscar módulo..." autoComplete="off"/>
           <kbd>⌘ K</kbd>
           {searchOpen && query.trim() && <div className="erp-search-results" role="listbox" aria-label="Módulos disponibles">{matches.length ? matches.map(item => <button type="button" role="option" aria-selected={false} key={item.path} onClick={() => navigate(item.path)}><WorkspaceIcon name={item.icon}/><span>{item.label}<small>{item.description}</small></span></button>) : <span className="erp-search-none">No hay módulos con ese nombre</span>}</div>}
         </div>
