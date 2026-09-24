@@ -41,8 +41,8 @@ const sizeStyles: Record<ButtonSize, Record<string, unknown>> = {
 
 const sizeFont: Record<ButtonSize, number> = {
   sm: fontSize.sm,
-  md: fontSize.md,
-  lg: fontSize.lg,
+  md: fontSize.sm,
+  lg: fontSize.md,
 };
 
 /** Base Button primitive shared between web and native. */
