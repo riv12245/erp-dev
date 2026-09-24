@@ -88,6 +88,16 @@ function CompanyWorkspace({ area, onDashboard }: { area: 'crm' | 'inventory' | '
   const [createCompany, setCreateCompany] = React.useState(false);
   const resources: readonly BusinessResource[] = area === 'crm' ? ['customers'] : area === 'sales' ? ['orders'] : area === 'purchasing' ? ['suppliers'] : ['products', 'warehouses', 'stock', 'movements'];
   const [resource, setResource] = React.useState<BusinessResource>(resources[0]);
+  const labels: Record<typeof area, { title: string; description: string }> = {
+    crm: { title: 'Clientes', description: 'Información y seguimiento comercial' },
+    sales: { title: 'Ventas', description: 'Borradores de pedidos de venta' },
+    purchasing: { title: 'Compras', description: 'Catálogo de proveedores' },
+    inventory: { title: 'Inventario', description: 'Productos, existencias y movimientos' },
+  };
+  const resourceLabels: Partial<Record<BusinessResource, string>> = {
+    customers: 'Clientes', orders: 'Borradores', suppliers: 'Proveedores',
+    products: 'Productos', warehouses: 'Almacenes', stock: 'Existencias', movements: 'Movimientos',
+  };
   React.useEffect(() => {
     const controller = new AbortController(); setError(''); setCompanies(null);
     void business.companies(controller.signal).then(result => {
@@ -96,15 +106,28 @@ function CompanyWorkspace({ area, onDashboard }: { area: 'crm' | 'inventory' | '
     return () => controller.abort();
   }, [retry]);
   return <ScrollView style={styles.root} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-    {onDashboard ? <Button label="Dashboard" variant="secondary" onPress={onDashboard} /> : null}<Text style={styles.title}>{area === 'crm' ? 'Customer management' : area === 'sales' ? 'Sales drafts' : area === 'purchasing' ? 'Supplier catalog' : 'Inventory'}</Text>
-    <Card padded><Text style={styles.heading}>Company</Text><View style={styles.row}>{companies?.map(company => <Button key={company.id} label={company.name} variant={companyId === company.id ? 'primary' : 'outline'} onPress={() => setCompanyId(company.id)} />)}</View>
-      {!companies && !error ? <ActivityIndicator accessibilityLabel="Loading authorized companies" /> : null}
-      {companies?.length === 0 ? <Text>No authorized companies. Create one if permitted, or ask your administrator for access.</Text> : null}
-      {error ? <><Text accessibilityRole="alert">{error}</Text><RefreshSessionButton /><Button label="Retry companies" onPress={() => setRetry(count => count + 1)} /></> : null}
-      {hasPermission('tenancy.company.write') ? <Button label="New company" variant="secondary" onPress={() => setCreateCompany(true)} /> : null}
-    </Card>
-    {createCompany ? <CompanyCreator onCancel={() => setCreateCompany(false)} onCreated={company => { setCompanies(current => [...(current ?? []), company]); setCompanyId(company.id); setCreateCompany(false); }} /> : null}
-    {companyId && companies ? <><View style={styles.row}>{resources.map(item => <Button key={item} label={businessDefinitions[item].title} variant={resource === item ? 'primary' : 'outline'} onPress={() => setResource(item)} />)}</View><RecordWorkspace key={`${companyId}:${resource}`} companyId={companyId} currency={companies.find(company => company.id === companyId)?.defaultCurrency ?? 'MXN'} resource={resource} /></> : null}
+    <View style={styles.moduleHeader}>
+      <Text style={styles.eyebrow}>ERP-DEV / {labels[area].title.toUpperCase()}</Text>
+      <Text style={styles.title}>{labels[area].title}</Text>
+      <Text style={styles.subtitle}>{labels[area].description}</Text>
+    </View>
+    {onDashboard ? <Button label="Volver al inicio" variant="secondary" onPress={onDashboard}/> : null}
+    <View style={styles.companyPanel}>
+      <View style={styles.sectionHeading}><Text style={styles.sectionTitle}>Empresa autorizada</Text>{hasPermission('tenancy.company.write') && <Button size="sm" label="+ Nueva" variant="outline" onPress={() => setCreateCompany(true)}/>}</View>
+      {!companies && !error && <ActivityIndicator accessibilityLabel="Cargando empresas autorizadas" color={colors.primary[600]}/>}
+      {companies?.length === 0 && <Text style={styles.helper}>No tienes empresas autorizadas. Solicita acceso o crea una empresa si cuentas con el permiso necesario.</Text>}
+      {error && <View style={styles.section}><Text accessibilityRole="alert" style={styles.error}>{error}</Text><RefreshSessionButton/><Button label="Reintentar" onPress={() => setRetry(count => count + 1)}/></View>}
+      {companies && companies.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.companyOptions}>
+        {companies.map(company => <Button key={company.id} size="sm" label={company.name} variant={companyId === company.id ? 'primary' : 'outline'} onPress={() => { setCompanyId(company.id); setCreateCompany(false); }}/>)}
+      </ScrollView>}
+    </View>
+    {createCompany && <CompanyCreator onCancel={() => setCreateCompany(false)} onCreated={company => { setCompanies(current => [...(current ?? []), company]); setCompanyId(company.id); setCreateCompany(false); }}/>}
+    {companyId && companies && <>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.resourceOptions}>
+        {resources.map(item => <Button key={item} label={resourceLabels[item] ?? businessDefinitions[item].title} size="sm" variant={resource === item ? 'primary' : 'outline'} onPress={() => setResource(item)}/>)}
+      </ScrollView>
+      <RecordWorkspace key={companyId + ':' + resource} companyId={companyId} currency={companies.find(company => company.id === companyId)?.defaultCurrency ?? 'MXN'} resource={resource}/>
+    </>}
   </ScrollView>;
 }
 
@@ -235,8 +258,21 @@ function SalesDraftEditor({ companyId, currency, onSaved, onCancel }: { companyI
   </Card>;
 }
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background.secondary }, container: { padding: 24, gap: 16 },
-  title: { fontSize: 26, fontWeight: '600', color: colors.text.primary }, heading: { fontSize: 18, fontWeight: '600', color: colors.text.primary },
-  section: { gap: 12 }, row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginVertical: 8 },
-  record: { gap: 8, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border.default },
+  root: { flex: 1, backgroundColor: colors.background.secondary },
+  container: { paddingHorizontal: 17, paddingTop: 22, paddingBottom: 45, gap: 18 },
+  moduleHeader: { gap: 6, marginBottom: 1 },
+  eyebrow: { fontSize: 10, letterSpacing: 1, fontWeight: '700', color: colors.primary[700] },
+  title: { fontSize: 27, fontWeight: '700', color: colors.text.primary },
+  subtitle: { fontSize: 12, color: colors.text.secondary, lineHeight: 19 },
+  companyPanel: { padding: 14, backgroundColor: colors.background.elevated, borderRadius: 11, borderWidth: 1, borderColor: colors.border.default, gap: 10 },
+  sectionHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 9 },
+  sectionTitle: { fontSize: 13, color: colors.text.primary, fontWeight: '700', flexShrink: 1 },
+  helper: { fontSize: 12, color: colors.text.secondary, lineHeight: 19 },
+  error: { fontSize: 12, color: colors.semantic.danger },
+  companyOptions: { flexDirection: 'row', gap: 8, paddingVertical: 2 },
+  resourceOptions: { flexDirection: 'row', gap: 8, paddingBottom: 3 },
+  heading: { fontSize: 16, fontWeight: '700', color: colors.text.primary },
+  section: { gap: 13 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginVertical: 7 },
+  record: { gap: 10, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border.default, backgroundColor: colors.background.elevated, marginBottom: 9 },
 });
