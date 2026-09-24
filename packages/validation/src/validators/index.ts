@@ -9,8 +9,7 @@ export interface ValidationResult {
 }
 
 export function isValidEmail(value: string): boolean {
-  // eslint-disable-next-line no-useless-escape
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  return value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 export function isValidUuid(value: string): boolean {
@@ -18,7 +17,7 @@ export function isValidUuid(value: string): boolean {
 }
 
 export function isStrongPassword(value: string): boolean {
-  if (value.length < 8) return false;
+  if (value.length < 8 || value.length > 4096) return false;
   if (/[A-Z]/.test(value) === false) return false;
   if (/[a-z]/.test(value) === false) return false;
   if (/\d/.test(value) === false) return false;

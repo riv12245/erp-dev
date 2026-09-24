@@ -7,6 +7,7 @@ export interface UserAttributes {
   readonly lastName: string;
   readonly status: 'active' | 'suspended' | 'locked';
   readonly failedLoginAttempts: number;
+  readonly authVersion: number;
   readonly lockedUntil?: Date;
   readonly lastLoginAt?: Date;
   readonly createdAt: Date;
@@ -21,6 +22,7 @@ export const userSchema = new mongoose.Schema<UserAttributes>(
     lastName: { type: String, required: true },
     status: { type: String, enum: ['active', 'suspended', 'locked'], default: 'active' },
     failedLoginAttempts: { type: Number, default: 0 },
+    authVersion: { type: Number, default: 0 },
     lockedUntil: { type: Date },
     lastLoginAt: { type: Date },
   },
@@ -34,6 +36,7 @@ export interface UserDocument extends mongoose.Document {
   lastName: string;
   status: 'active' | 'suspended' | 'locked';
   failedLoginAttempts: number;
+  authVersion: number;
   lockedUntil?: Date;
   lastLoginAt?: Date;
 }

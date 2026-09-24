@@ -1,4 +1,4 @@
-import { buildErrorFromResponse, createCorrelationId, isAbortError, normalizeError, NetworkError, TimeoutError } from './errors.js';
+import { buildErrorFromResponse, createCorrelationId, isAbortError, normalizeError, NetworkError, TimeoutError, UnauthorizedError } from './errors.js';
 import { ApiClientConfig, ApiRequest, ApiResponse, ApiSuccessResponse, isApiErrorResponse } from './types.js';
 
 export interface ApiClient {
@@ -39,9 +39,12 @@ function buildHeaders(config: ApiClientConfig, request: ApiRequest): Record<stri
  * optional refresh support, timeout, cancellation and correlation ids.
  */
 export function createApiClient(config: ApiClientConfig): ApiClient {
+  let refreshing: Promise<string | null> | null = null;
   const request = async <T>(req: ApiRequest): Promise<T> => {
+    const epoch = config.getSessionEpoch?.();
     let accessToken: string | null = null;
     if (config.getAccessToken) accessToken = await config.getAccessToken();
+    if (epoch !== config.getSessionEpoch?.()) throw new UnauthorizedError();
 
     const headers = buildHeaders(config, req);
     if (accessToken) headers.authorization = `Bearer ${accessToken}`;
@@ -53,32 +56,37 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     const reqSignal = req.signal;
+    const abort = () => controller.abort();
     if (reqSignal?.aborted) controller.abort();
-    else reqSignal?.addEventListener('abort', () => controller.abort(), { once: true });
+    else reqSignal?.addEventListener('abort', abort, { once: true });
 
     const attempt = async (): Promise<Response> => {
-      return fetch(url, {
-        method: req.method,
-        headers,
-        body: req.body === undefined ? undefined : JSON.stringify(req.body),
-        signal: controller.signal,
-      });
+      try {
+        return await fetch(url, {
+          method: req.method,
+          headers,
+          body: req.body === undefined ? undefined : JSON.stringify(req.body),
+          signal: controller.signal,
+          credentials: config.credentials,
+        });
+      } catch (error) {
+        if (isAbortError(error)) throw new TimeoutError(timeoutMs);
+        throw new NetworkError('Network request failed', error);
+      }
     };
 
     try {
-      let response: Response;
-      try {
-        response = await attempt();
-      } catch (error) {
-        if (isAbortError(error)) {
-          throw new TimeoutError(timeoutMs);
-        }
-        throw new NetworkError('Network request failed', error);
-      }
+      let response = await attempt();
 
-      if (response.status === 401 && config.onRefresh) {
-        const refreshed = await config.onRefresh();
-        if (refreshed) {
+      const safeRetry = req.method === 'GET' || req.method === 'HEAD' || (req.idempotencyGuaranteed && !!req.idempotencyKey);
+      if (response.status === 401 && config.onRefresh && safeRetry && epoch === config.getSessionEpoch?.()) {
+        const latest = await config.getAccessToken?.() ?? null;
+        if (epoch !== config.getSessionEpoch?.()) throw new UnauthorizedError();
+        if (!refreshing && latest === accessToken) {
+          refreshing = config.onRefresh().finally(() => { refreshing = null; });
+        }
+        const refreshed = latest !== accessToken ? latest : await refreshing;
+        if (refreshed && epoch === config.getSessionEpoch?.() && !controller.signal.aborted) {
           headers.authorization = `Bearer ${refreshed}`;
           response = await attempt();
         }
@@ -88,13 +96,19 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
         throw await buildErrorFromResponse(response, correlationId);
       }
 
+      if (req.method === 'HEAD' || response.status === 204) {
+        if (epoch !== config.getSessionEpoch?.()) throw new UnauthorizedError();
+        return undefined as T;
+      }
       const payload = (await response.json()) as ApiResponse<T>;
+      if (epoch !== config.getSessionEpoch?.()) throw new UnauthorizedError();
       if (isApiErrorResponse(payload)) {
         throw normalizeError(payload, correlationId);
       }
       return (payload as ApiSuccessResponse<T>).data;
     } finally {
       clearTimeout(timer);
+      reqSignal?.removeEventListener('abort', abort);
     }
   };
 

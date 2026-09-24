@@ -1,6 +1,7 @@
 import { ConfigService } from './config.js';
 import { MongoConnection } from './connection.js';
 import { OutboxProcessor } from './outbox/outbox-processor.js';
+import { InboxProcessor } from './outbox/inbox-processor.js';
 import { Scheduler } from './scheduled/scheduler.js';
 import { DomainEventDispatcher } from './events/domain-event-dispatcher.js';
 import { JobQueue } from './shared/job-queue.js';
@@ -11,6 +12,7 @@ export class Worker {
   private readonly configService: ConfigService;
   private readonly db: MongoConnection;
   private readonly outboxProcessor: OutboxProcessor;
+  private readonly inboxProcessor: InboxProcessor;
   private readonly scheduler: Scheduler;
   private readonly eventDispatcher: DomainEventDispatcher;
   private readonly jobQueue: JobQueue;
@@ -19,6 +21,7 @@ export class Worker {
     this.configService = ConfigService.getInstance();
     this.db = MongoConnection.getInstance();
     this.outboxProcessor = OutboxProcessor.getInstance();
+    this.inboxProcessor = InboxProcessor.getInstance();
     this.scheduler = Scheduler.getInstance();
     this.eventDispatcher = DomainEventDispatcher.getInstance();
     this.jobQueue = JobQueue.getInstance();
@@ -37,12 +40,20 @@ export class Worker {
       return;
     }
 
+    this.configService.getAll(); // Validate every numeric setting before starting resources.
     this.isRunning = true;
     console.info(`Worker ${this.configService.get('workerId')} starting...`);
 
-    await this.outboxProcessor.start();
-    await this.scheduler.start();
-    await this.jobQueue.start();
+    try {
+      await this.outboxProcessor.start();
+      await this.inboxProcessor.start();
+      await this.scheduler.start();
+      await this.jobQueue.start();
+    } catch (error) {
+      // Preserve the startup failure while attempting every resource cleanup.
+      await this.stop().catch(() => console.error('Worker cleanup after startup failure was incomplete'));
+      throw error;
+    }
 
     this.eventDispatcher.on('job:completed', {
       handle: async () => {
@@ -61,10 +72,11 @@ export class Worker {
     this.isRunning = false;
     console.info('Worker stopping...');
 
-    await this.outboxProcessor.stop();
-    await this.scheduler.stop();
-    await this.jobQueue.stop();
+    const results = await Promise.allSettled([
+      this.outboxProcessor.stop(), this.inboxProcessor.stop(), this.scheduler.stop(), this.jobQueue.stop(),
+    ]);
     await this.db.disconnect();
+    if (results.some(result => result.status === 'rejected')) throw new Error('Worker shutdown failed');
 
     console.info('Worker stopped');
   }

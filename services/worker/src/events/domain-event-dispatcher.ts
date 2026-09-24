@@ -14,7 +14,6 @@ export class DomainEventDispatcher {
     this.idempotencyService = IdempotencyService.getInstance();
     this.retryService = RetryService.getInstance();
     this.validator = EventSchemaValidator.getInstance();
-    this.registerHandlers();
   }
 
   static getInstance(): DomainEventDispatcher {
@@ -44,6 +43,7 @@ export class DomainEventDispatcher {
     }
 
     const handlers = this.handlers.get(event.eventType) ?? [];
+    if (handlers.length === 0) throw new Error(`No handler registered for ${event.eventType}`);
 
     for (const handler of handlers) {
       await this.retryService.executeWithRetry(async () => {
@@ -62,11 +62,6 @@ export class DomainEventDispatcher {
     console.info('DomainEventDispatcher stopped');
   }
 
-  private registerHandlers(): void {
-    this.on('order.created', { handle: async () => {} });
-    this.on('payment.processed', { handle: async () => {} });
-    this.on('user.registered', { handle: async () => {} });
-  }
 }
 
 export interface EventHandler {

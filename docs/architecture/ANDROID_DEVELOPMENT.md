@@ -5,7 +5,8 @@ The native project lives in `apps/mobile/android` and matches React Native 0.74.
 From the repository root:
 
 ```sh
-npm ci
+npm ci --ignore-scripts --no-audit
+npm run deps:prepare
 npm run build
 npm run bundle:android -w @erp/mobile
 npm run android -w @erp/mobile
@@ -23,6 +24,14 @@ cd apps/mobile/android
 `ErpConfig` exposes the compiled API URL to JavaScript before the app registers. HTTP cleartext is allowed only in the debug manifest. Release tasks require an explicit HTTPS API URL. Release signing, store delivery and device-level end-to-end validation remain separate work; no signing keys are committed.
 
 CI builds an x86_64 debug APK and uploads `erp-android-debug`. This verifies native compilation, not installation or login on a physical device. Metro uses two workers and explicit monorepo module paths to avoid resolving the web application's React version.
+
+## Secure session storage
+
+`ErpSecureSessionModule.kt` is registered through `ErpConfigPackage`. It encrypts the rotating refresh token with AES/GCM using an Android Keystore AES key and stores ciphertext/IV in private preferences. Access tokens remain in JavaScript memory. App startup reads the encrypted credential and calls refresh before rendering authenticated navigation. Logout persists a signed-out marker and removes the credential even when the server cannot be reached; remote revocation requires connectivity. Keystore read/decryption failure clears the saved ciphertext and blocks automatic restore. There is no Expo dependency or plaintext fallback. The existing manifest disables Android backup.
+
+Native compilation and JavaScript unit tests cannot establish on-device Keystore behavior. Validate login, process death/restart, rotation, offline logout/restart and key invalidation on an emulator/device before claiming that evidence.
+
+Local validation on 2026-09-22: web/mobile TypeScript checks, the shared API client build, all 23 web tests (including 3 real HTTP/Mongo session integration tests), and `npm run bundle:android -w @erp/mobile` passed. `gradlew.bat :app:assembleDebug -PreactNativeArchitectures=x86_64` passed, including the application's Kotlin compilation, producing `apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk`. Gradle resolved standard Maven dependencies and automatically provisioned required NDK 26.1.10909125, Build-Tools 34.0.0 and Platform 34 into the existing Android SDK using its accepted licenses. No production endpoint or signing configuration was changed. This is debug build evidence, not device installation or Keystore runtime evidence.
 
 ## Dependency boundary
 

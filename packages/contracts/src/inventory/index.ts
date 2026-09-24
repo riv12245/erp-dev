@@ -7,4 +7,10 @@ export type {
   Dimensions,
   WarehouseType,
   MovementType,
+  ProductCreateInput,
+  ProductPatchInput,
+  WarehouseCreateInput,
+  WarehousePatchInput,
+  StockMovementInput,
+  StockAvailability,
 } from "./types.js";

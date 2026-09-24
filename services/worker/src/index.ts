@@ -2,14 +2,14 @@ import { Worker } from './worker.js';
 import { MongoConnection } from './connection.js';
 
 async function main(): Promise<void> {
-  const worker = Worker.getInstance();
-  const db = MongoConnection.getInstance();
-
   try {
+    const worker = Worker.getInstance();
+    const db = MongoConnection.getInstance();
     await db.connect();
     await worker.start();
-  } catch (error) {
-    console.error('Failed to start worker:', error);
+  } catch {
+    await MongoConnection.getInstance().disconnect().catch(() => console.error('Worker connection cleanup failed'));
+    console.error('Failed to start worker');
     process.exit(1);
   }
 }

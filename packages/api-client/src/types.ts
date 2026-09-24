@@ -8,6 +8,8 @@ export interface ApiClientConfig {
   readonly defaultTimeoutMs?: number;
   readonly getAccessToken?: () => Promise<string | null> | string | null;
   readonly onRefresh?: () => Promise<string | null>;
+  readonly getSessionEpoch?: () => number;
+  readonly credentials?: RequestCredentials;
   readonly tenantId?: string;
   readonly getTenantId?: () => string | null | undefined;
   readonly companyId?: string;
@@ -15,7 +17,9 @@ export interface ApiClientConfig {
 }
 
 export interface ApiRequest {
-  readonly method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  readonly method: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  /** Only set when the endpoint actually guarantees idempotency for this key. */
+  readonly idempotencyGuaranteed?: boolean;
   readonly path: string;
   readonly body?: unknown;
   readonly query?: Readonly<Record<string, string | number | boolean | undefined>>;

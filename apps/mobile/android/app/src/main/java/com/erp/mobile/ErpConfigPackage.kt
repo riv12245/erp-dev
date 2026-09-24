@@ -12,6 +12,6 @@ class ErpConfigModule(context: ReactApplicationContext) : ReactContextBaseJavaMo
 }
 
 class ErpConfigPackage : ReactPackage {
-  override fun createNativeModules(context: ReactApplicationContext): List<NativeModule> = listOf(ErpConfigModule(context))
+  override fun createNativeModules(context: ReactApplicationContext): List<NativeModule> = listOf(ErpConfigModule(context), ErpSecureSessionModule(context))
   override fun createViewManagers(context: ReactApplicationContext): List<ViewManager<*, *>> = emptyList()
 }

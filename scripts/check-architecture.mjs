@@ -6,7 +6,7 @@
  * Rules enforced (violations exit 1):
  *   1. domain dirs under modules must NOT import the module's infrastructure (domain stays pure).
  *   2. infrastructure dirs under modules must NOT import the module's application (layer inversion).
- *   3. modules/A must NOT import modules/B where A != B (no cross-module coupling).
+ *   3. modules/A may only import modules/B through B's public index (application contracts).
  *   4. platform/ must NOT import modules/ (platform is the stable base layer).
  *   5. shared/ must NOT import modules/ or @erp/* packages (shared stays glue-free).
  *   6. No God Store / God Service / God Repository classes.
@@ -37,7 +37,7 @@ function walk(dir, out) {
     if (entry === 'node_modules' || entry === 'dist' || entry === '.turbo') continue;
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) walk(full, out);
-    else if (entry.endsWith('.ts') && !entry.endsWith('.test.ts') && !entry.endsWith('.spec.ts')) out.push(full);
+    else if (/\.tsx?$/.test(entry) && !/\.(?:test|spec)\.tsx?$/.test(entry)) out.push(full);
   }
 }
 
@@ -73,13 +73,6 @@ collectFiles(API_SRC, apiFiles);
 
 for (const file of apiFiles) {
   const info = classify(file);
-  const fromDir = esc(dirname(file));
-
-  const importDepth = (fromDir, spec) => {
-    const joined = normalize(join(fromDir.split('/').join('\\'), spec.split('/').join('\\')));
-    const relPath = relative(API_SRC, joined).split('\\').join('/');
-    return relPath.split('/').filter((part) => part === '..').length;
-  };
 
   for (const spec of importsOf(file)) {
     const isRel = spec.startsWith('./') || spec.startsWith('../');
@@ -87,13 +80,19 @@ for (const file of apiFiles) {
     if (!isRel && !isErpPkg) continue;
 
     // deep relative imports (warning)
-    if (isRel && importDepth(fromDir, spec) >= 3) {
+    if (isRel && spec.split('/').filter(part => part === '..').length >= 3) {
       warnings.push(`${esc(relative(ROOT, file))} has deep relative imports`);
     }
 
-    // modules/<A> -> modules/<B>
-    if (info.layer === 'modules' && isRel && /modules\//.test(spec)) {
-      violations.push(`${esc(relative(ROOT, file))} module ${info.moduleName} imports across modules: ${spec}`);
+    // Resolve the actual destination: ../../crm/index.js is a public contract,
+    // ../../crm/infrastructure/model.js is a forbidden private dependency.
+    if (info.layer === 'modules' && isRel) {
+      const target = classify(normalize(join(dirname(file), spec)));
+      const resolved = esc(relative(API_SRC, normalize(join(dirname(file), spec))));
+      if (target.layer === 'modules' && target.moduleName !== info.moduleName
+        && !/^modules\/[^/]+\/index\.(?:js|ts)$/.test(resolved)) {
+        violations.push(`${esc(relative(ROOT, file))} imports private module infrastructure: ${spec}`);
+      }
     }
 
     // platform -> modules
@@ -146,9 +145,9 @@ for (const [group, name] of [
     if (file === base) continue;
     for (const spec of importsOf(file)) {
       if (!(spec.startsWith('./') || spec.startsWith('../'))) continue;
-      const resolved = normalize(join(dirname(file), spec.split('/').join('\\')));
-      const inTree = relative(base, resolved).split('\\'); // relative from base; if it starts with '..' we escaped
-      if (inTree[0] === '..') {
+      const resolved = normalize(join(dirname(file), spec));
+      const inTree = esc(relative(base, resolved));
+      if (inTree === '..' || inTree.startsWith('../')) {
         violations.push(`${esc(relative(ROOT, file))} escapes ${group}/${name} src tree: ${spec}`);
       }
     }

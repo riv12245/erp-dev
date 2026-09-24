@@ -39,12 +39,21 @@ describe('development seed CLI', () => {
   it('refuses production and non-development databases before connecting', async () => {
     expect((await run({ NODE_ENV: 'production' })).status).toBe(1);
     expect((await run({ MONGODB_DB_NAME: 'customer_live' }, ['--reset'])).status).toBe(1);
+    expect((await run({ SEED_DEV: 'false' }, ['--reset'])).status).toBe(1);
   });
-  it('reset preserves unrelated users and tenants', async () => {
+  it('reset preserves unrelated users, tenants, memberships and stable demo identities', async () => {
+    expect((await run()).status).toBe(0);
+    const demoUser = await h.conn.collection('users').findOne({ email: 'admin@acme.io' });
+    expect(demoUser).not.toBeNull();
+    const demoUserId = demoUser!._id.toString();
     await h.conn.collection('users').insertOne({ email: 'unrelated@example.com' });
     await h.conn.collection('tenants').insertOne({ tenantId: 'unrelated' });
+    const unrelatedMembership = { userId: demoUserId, tenantId: 'unrelated', roleNames: ['VIEWER'], status: 'active' };
+    await h.conn.collection('memberships').insertOne(unrelatedMembership);
     expect((await run({}, ['--reset'])).status).toBe(0);
     expect(await h.conn.collection('users').countDocuments({ email: 'unrelated@example.com' })).toBe(1);
     expect(await h.conn.collection('tenants').countDocuments({ tenantId: 'unrelated' })).toBe(1);
+    expect((await h.conn.collection('users').findOne({ email: 'admin@acme.io' }))?._id.toString()).toBe(demoUserId);
+    expect(await h.conn.collection('memberships').findOne({ userId: demoUserId, tenantId: 'unrelated' })).toMatchObject(unrelatedMembership);
   });
 });

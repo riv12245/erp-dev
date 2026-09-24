@@ -8,6 +8,7 @@
     "services/*"
   ],
   "scripts": {
+    "deps:prepare": "npm rebuild esbuild@0.28.2 mongodb-memory-server@10.4.3 --ignore-scripts=false --foreground-scripts --no-audit",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "dev:api": "turbo run dev --filter=@erp/api",
@@ -32,7 +33,8 @@
     "check:architecture": "node scripts/check-architecture.mjs",
     "check:imports": "node scripts/check-imports.mjs",
     "check:tenant-scope": "node scripts/check-tenant-scope.mjs",
-    "check": "npm run check:architecture && npm run check:imports && npm run check:tenant-scope && npm run check:openapi",
+    "check:tooling": "node --test scripts/check-architecture.test.mjs",
+    "check": "npm run check:tooling && npm run check:architecture && npm run check:imports && npm run check:tenant-scope && npm run check:openapi",
     "seed:dev": "node --env-file=services/api/.env --import ./services/api/src/bootstrap/dns-cloudflare.mjs --import tsx scripts/seed-dev.ts",
     "prepare": "husky",
     "check:openapi": "node scripts/check-openapi.mjs"

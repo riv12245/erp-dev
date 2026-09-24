@@ -11,3 +11,4 @@ export type {
   OrderItem,
   OrderStatus,
 } from "./types.js";
+export type { DraftSalesOrderLineInput, CreateDraftSalesOrderRequest, DraftSalesOrderLine, DraftSalesOrderDTO, DraftSalesOrderDetail, DraftSalesOrderAvailability, DraftSalesOrderList } from './draft.js';

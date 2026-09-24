@@ -1,48 +1,19 @@
 ﻿import { Router, Request, Response } from 'express';
 import { asyncHandler, ok } from '../../shared/index.js';
 import { getConnection } from '../../config/database.js';
+import { registerOrderRoutes } from './presentation/order-routes.js';
+export { SalesOrderService } from './application/order-service.js';
+export type { DraftSalesOrderDTO as SalesOrder, DraftSalesOrderLine as SalesOrderLine } from '@erp/contracts/sales';
 
-export type SalesOrderStatus =
-  | 'DRAFT'
-  | 'SUBMITTED'
-  | 'PENDING_APPROVAL'
-  | 'APPROVED'
-  | 'CONFIRMED'
-  | 'FULFILLING'
-  | 'SHIPPED'
-  | 'DELIVERED'
-  | 'INVOICED'
-  | 'CANCELLED'
-  | 'REJECTED';
+export type SalesOrderStatus = 'DRAFT' | 'CANCELLED';
 
-export interface SalesOrderLine {
-  readonly lineId: string;
-  readonly itemId: string;
-  readonly description: string;
-  readonly quantity: number;
-  readonly unitPrice: number;
-  readonly discountPercent?: number;
-  readonly taxRate: number;
-}
-
-export interface SalesOrder {
-  readonly orderId: string;
-  readonly tenantId: string;
-  readonly companyId: string;
-  readonly branchId?: string;
-  readonly customerId: string;
-  readonly number: string;
-  readonly status: SalesOrderStatus;
-  readonly lines: readonly SalesOrderLine[];
-  readonly expectedDeliveryDate?: Date;
-  readonly createdAt: Date;
-}
 
 export const SalesModule = { id: 'sales', displayName: 'Sales' } as const;
 
 export function registerSalesRoutes(router: Router): void {
+  registerOrderRoutes(router);
   router.get('/sales/health', asyncHandler(async (_req: Request, res: Response) => {
     const conn = getConnection();
-    ok(res, { module: 'sales', status: 'skeleton', db: conn?.readyState === 1 ? 'up' : 'down' });
+    ok(res, { module: 'sales', status: 'draft-orders', db: conn?.readyState === 1 ? 'up' : 'down' });
   }));
 }

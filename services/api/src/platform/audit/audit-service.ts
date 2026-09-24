@@ -9,14 +9,14 @@ import { getAuditModel, AuditEntryAttributes } from './audit-model.js';
 export class AuditService {
   constructor(private readonly connection: mongoose.Connection) {}
 
-  async record(entry: Omit<AuditEntryAttributes, 'auditId' | 'timestamp'>): Promise<void> {
+  async record(entry: Omit<AuditEntryAttributes, 'auditId' | 'timestamp'>, session?: mongoose.ClientSession): Promise<void> {
     const Audit = getAuditModel(this.connection);
-    await Audit.init();
-    await Audit.create({
+    if (!session) await Audit.init();
+    await Audit.create([{
       auditId: crypto.randomUUID(),
       timestamp: new Date(),
       ...entry,
-    });
+    }], { session });
   }
 
   async list(

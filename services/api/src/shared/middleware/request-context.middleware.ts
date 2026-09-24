@@ -23,7 +23,8 @@ export interface RequestContext {
  */
 export function requestContextMiddleware(req: Request, _res: Response, next: NextFunction): void {
   const inbound = req.headers['x-correlation-id'];
-  req.correlationId = typeof inbound === 'string' && inbound.length > 0 ? inbound : randomUUID();
+  req.correlationId = typeof inbound === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/.test(inbound) ? inbound : randomUUID();
+  _res.setHeader('x-correlation-id', req.correlationId);
   req.requestId = randomUUID();
   (req as Request & { requestContext: RequestContext }).requestContext = {
     correlationId: req.correlationId,

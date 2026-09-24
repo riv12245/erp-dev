@@ -74,6 +74,34 @@ describe('API to worker durable outbox', () => {
     expect((await getOutboxModel(connection).findOne({ eventId: 'retry' }))?.status).toBe('published');
   });
 
+  it('does not persist publisher exceptions that may contain credentials or payloads', async () => {
+    await repo.append(event('redacted'));
+    await processor('worker', { publish: async () => { throw new Error('secret credential'); } }).processOutbox();
+    expect((await getOutboxModel(connection).findOne({ eventId: 'redacted' }))?.lastError).toBe('Delivery failed');
+  });
+
+  it('awaits active delivery on stop without claiming the next event', async () => {
+    let release!: () => void;
+    let began!: () => void;
+    const started = new Promise<void>(resolve => { began = resolve; });
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const inbox = new MongoInboxPublisher(connection);
+    const p = new OutboxProcessor(async () => repo, async () => ({ publish: async record => {
+      began(); await gate; await inbox.publish(record);
+    } }), { owner: 'shutdown', batchSize: 10, pollIntervalMs: 10 });
+    await repo.append(event('first'));
+    const starting = p.start();
+    try {
+      await started;
+      await repo.append(event('waiting'));
+      const stopping = p.stop();
+      release();
+      await Promise.all([starting, stopping]);
+      expect(await getOutboxModel(connection).countDocuments({ status: 'published' })).toBe(1);
+      expect(await repo.countPending()).toBe(1);
+    } finally { release(); await p.stop(); }
+  });
+
   it('bounds retries, including workers that repeatedly crash with a lease', async () => {
     await repo.append(event('exhausted'));
     await repo.claimBatch(1, 'worker-a');

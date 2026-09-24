@@ -1,13 +1,13 @@
 import http from 'node:http';
 import { AddressInfo } from 'node:net';
 import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryServer, MongoMemoryReplSet } from 'mongodb-memory-server';
 import { vi } from 'vitest';
 
 export interface TestHarness {
   readonly server: http.Server;
   readonly conn: mongoose.Connection;
-  readonly mongo: MongoMemoryServer;
+  readonly mongo: MongoMemoryServer | MongoMemoryReplSet;
   readonly baseUrl: string;
   readonly stop: () => Promise<void>;
 }
@@ -47,7 +47,7 @@ export async function apiRequest(baseUrl: string, path: string, options: Request
  * file starts from a clean config + empty database. Environment variables
  * must be set BEFORE src modules load, hence the dynamic imports.
  */
-export async function setupApi(env: Record<string, string> = {}): Promise<TestHarness> {
+export async function setupApi(env: Record<string, string> = {}, replicaSet = false): Promise<TestHarness> {
   vi.resetModules();
 
   const merged: Record<string, string> = {
@@ -55,11 +55,10 @@ export async function setupApi(env: Record<string, string> = {}): Promise<TestHa
     PORT: '0',
     HOST: '127.0.0.1',
     JWT_SECRET: 'test-secret-0123456789abcdef0123456789abcdef',
-    JWT_REFRESH_SECRET: 'test-refresh-secret-0123456789abcdef',
+    JWT_REFRESH_EXPIRES_IN: '7d',
     JWT_EXPIRES_IN: '15m',
     RATE_LIMIT_MAX: '100',
     RATE_LIMIT_WINDOW_MS: '60000',
-    BCRYPT_ROUNDS: '4',
     TENANT_HEADER: 'x-tenant-id',
     SEED_DEV: 'false',
     ...env,
@@ -68,8 +67,11 @@ export async function setupApi(env: Record<string, string> = {}): Promise<TestHa
     process.env[key] = value;
   }
 
-  const mongo = await MongoMemoryServer.create();
+  const mongo = replicaSet ? await MongoMemoryReplSet.create({ replSet: { count: 1 } }) : await MongoMemoryServer.create();
   const uri = mongo.getUri();
+  // Override any inherited Atlas/production URI: tests only use their own mongod.
+  process.env.MONGODB_URI = uri;
+  process.env.MONGODB_DB_NAME = 'erp_test';
 
   const { createApp } = await import('../src/app.js');
   const { connectDatabase, disconnectDatabase } = await import('../src/config/database.js');

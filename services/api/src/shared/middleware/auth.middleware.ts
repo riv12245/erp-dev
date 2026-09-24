@@ -8,7 +8,7 @@ import { AuthDomainService } from '../../platform/auth/auth-service.js';
 declare global {
   namespace Express { interface Request { authUser?: AuthUser; } }
 }
-export type IdentityResolver = (userId: string, tenantId: string) => Promise<AuthUser>;
+export type IdentityResolver = (userId: string, tenantId: string, sessionId: string) => Promise<AuthUser>;
 
 /** Each app captures its own verifier and resolver; no mutable global decoder. */
 export function requireAuth(config: AppConfig, resolveIdentity: IdentityResolver) {
@@ -18,10 +18,10 @@ export function requireAuth(config: AppConfig, resolveIdentity: IdentityResolver
       const header = req.headers.authorization;
       if (!header?.startsWith('Bearer ')) throw AppError.unauthorized();
       const payload = await domain.verify(header.slice(7));
-      if (!payload?.userId || !payload.tenantId) throw AppError.unauthorized('Invalid or expired token');
+      if (!payload?.userId || !payload.tenantId || !payload.sessionId) throw AppError.unauthorized('Invalid or expired token');
       if (!req.tenant) throw new TenantContextMissingError();
       if (payload.tenantId !== req.tenant.tenantId) throw AppError.forbidden('Tenant mismatch');
-      req.authUser = await resolveIdentity(payload.userId, payload.tenantId);
+      req.authUser = await resolveIdentity(payload.userId, payload.tenantId, payload.sessionId);
     };
     authenticate().then(() => next()).catch(next);
   };

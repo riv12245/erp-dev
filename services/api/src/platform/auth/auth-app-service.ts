@@ -5,11 +5,9 @@ import { AuthDomainService } from './auth-service.js';
 import { AuditService } from '../audit/audit-service.js';
 import { resolveMembership } from '../iam/membership.js';
 import { getUserModel } from './user-model.js';
+import { SessionService, SessionTokens } from './session-service.js';
 
-export interface LoginResult {
-  readonly accessToken: string;
-  readonly user: { userId: string; email: string };
-}
+export type LoginResult = SessionTokens;
 
 export interface RegisterInput {
   readonly email: string;
@@ -28,6 +26,7 @@ export class AuthService {
     private readonly authDomain: AuthDomainService,
     private readonly accessTtlSeconds: number,
     private readonly bruteForceMax: number,
+    private readonly refreshTtlSeconds = 604800,
   ) {}
 
   async register(input: RegisterInput): Promise<{ userId: string; email: string }> {
@@ -48,7 +47,7 @@ export class AuthService {
     return { userId: String((created as { _id: unknown })._id), email: input.email };
   }
 
-  async login(email: string, password: string, tenantId: string): Promise<LoginResult> {
+  async login(email: string, password: string, tenantId: string, correlationId?: string): Promise<LoginResult> {
     const User = getUserModel(this.connection);
 
     const user = await User.findOne({ email: email.toLowerCase() }).exec();
@@ -72,19 +71,15 @@ export class AuthService {
           } },
         ], { new: true },
       );
-      if (updated?.status === 'locked') await new AuditService(this.connection).record({ tenantId, actorId: user._id.toString(), action: 'auth.login.blocked', entityType: 'user' });
+      if (updated?.status === 'locked') await new AuditService(this.connection).record({ tenantId, actorId: user._id.toString(), action: 'auth.login.blocked', entityType: 'user', correlationId });
       throw AppError.unauthorized('Invalid credentials');
     }
 
-    const grants = await resolveMembership(this.connection, user._id.toString(), tenantId);
+    await resolveMembership(this.connection, user._id.toString(), tenantId);
     const accepted = await User.updateOne({ _id: user._id, $or: [{ status: 'active' }, { status: 'locked', lockedUntil: { $lte: new Date() } }] }, { $set: { status: 'active', failedLoginAttempts: 0, lastLoginAt: new Date() }, $unset: { lockedUntil: 1 } });
     if (accepted.matchedCount !== 1) throw AppError.unauthorized('Invalid credentials');
-    await new AuditService(this.connection).record({ tenantId, actorId: user._id.toString(), action: 'auth.login.succeeded', entityType: 'user' });
-    const accessToken = await this.authDomain.issueAccessToken(
-      { userId: user._id.toString(), email: user.email, tenantId, roles: grants.roles },
-      this.accessTtlSeconds,
-    );
-
-    return { accessToken, user: { userId: user._id.toString(), email: user.email } };
+    await new AuditService(this.connection).record({ tenantId, actorId: user._id.toString(), action: 'auth.login.succeeded', entityType: 'user', correlationId });
+    return new SessionService(this.connection, this.authDomain, this.accessTtlSeconds, this.refreshTtlSeconds)
+      .create(user._id.toString(), tenantId, user.authVersion ?? 0);
   }
 }

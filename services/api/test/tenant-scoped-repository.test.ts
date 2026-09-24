@@ -110,4 +110,17 @@ describe('TenantScopedRepository', () => {
     expect(await b.findOne({ _id: doc._id })).toBeNull();
     expect((await a.findOne({ _id: doc._id }) as { tenantId: string }).tenantId).toBe('tenant_a');
   });
+
+  it('rejects unlimited pagination and protected update fields, and cannot modify foreign IDs', async () => {
+    const a = new WidgetRepository(model, { tenantId: 'tenant_a' });
+    const b = new WidgetRepository(model, { tenantId: 'tenant_b' });
+    const doc = await a.create({ name: 'protected', version: 1 }) as { _id: string };
+    expect((await b.updateOneWithVersion(String(doc._id), 1, { name: 'foreign' })).updated).toBe(false);
+    for (const limit of [0, -1, 101, NaN, 0.5]) await expect(a.findMany({}, limit)).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    for (const updates of [{ createdBy: 'forged' }, { version: 99 }, { 'tenantId.value': 'foreign' }, { $unset: { tenantId: 1 } }]) {
+      await expect(a.updateOneWithVersion(String(doc._id), 1, updates)).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    }
+    await expect(a.updateOneWithVersion(String(doc._id), -1, { name: 'invalid' })).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect((await a.findOne({ _id: doc._id }) as { name: string }).name).toBe('protected');
+  });
 });

@@ -7,6 +7,8 @@ export const apiClient = createApiClient({
   defaultTimeoutMs: 30_000,
   getTenantId: () => useAuthStore.getState().tenantId,
   getAccessToken: () => useAuthStore.getState().accessToken,
+  onRefresh: () => useAuthStore.getState().refresh(),
+  getSessionEpoch: () => useAuthStore.getState().sessionEpoch(),
 });
 
 export function useApi() {

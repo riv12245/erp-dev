@@ -12,7 +12,7 @@ This document provides comprehensive instructions for setting up the development
 ## Prerequisites
 
 ### Required Software
-- **Node.js**: >= 20.0.0
+- **Node.js**: >= 22.12.0 (CI: Node 22; Windows validation: Node 24.18 / npm 11.16)
 - **npm**: >= 10.0.0
 - **MongoDB Atlas** connection string (or local MongoDB)
 - **Redis**: Local or cloud instance
@@ -31,25 +31,27 @@ This document provides comprehensive instructions for setting up the development
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/erp-platform/erp.git
-cd erp
+git clone https://github.com/ErickRFM/erp-dev.git
+cd erp-dev
 ```
 
 ### 2. Install Dependencies
 ```bash
-npm install
+npm ci --ignore-scripts --no-audit
+npm run deps:prepare
+npm run build
 ```
 
 ### 3. Configure Environment
 ```bash
-cp .env.example .env.local
-# Edit .env.local with your configuration
+cp .env.example services/api/.env
+# Edit services/api/.env with your own development URI and random JWT_SECRET
 ```
 
 ### 4. Set Up Database
 ```bash
 # MongoDB Atlas connection string
-# Add to .env.local:
+# Add privately to services/api/.env only if using Atlas development:
 MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/erp_dev
 MONGODB_DB_NAME=erp_dev
 
@@ -59,7 +61,7 @@ REDIS_URL=redis://localhost:6379
 
 ### 5. Seed Development Data
 ```bash
-npx tsx scripts/seed-dev.ts
+npm run seed:dev
 ```
 
 ### 6. Start Development
@@ -80,8 +82,26 @@ npm run dev:mobile
 ### 7. Verify Health
 ```bash
 curl http://localhost:3000/health
-# Expected: { "status": "healthy", ... }
+# Expected: { "status": "ok", ... }; /health/ready separately checks Mongo readiness
 ```
+
+### Reproducible scripts and validation
+
+`npm ci --ignore-scripts --no-audit` installs exactly the lock without lifecycle scripts. `npm run deps:prepare` enables only the reviewed exact versions esbuild 0.28.2 and mongodb-memory-server 10.4.3. Review provenance and update this command when changing either locked version. npm 11 `allowScripts` warnings are advisory by default, so a warning alone does **not** establish that a script was blocked. The two-command policy works with npm 10 CI and npm 11 locally. Husky is optional (`npm run prepare`), not part of the selected dependency rebuild. Never mix npm and pnpm against the same node_modules tree.
+
+The API development/seed scripts load `services/api/.env`; the worker reads exported environment variables, not this file. Web uses `VITE_API_URL` (Vite environment); Android uses `ERP_API_URL` at Gradle build time. `CORS_ORIGIN` is the API's comma-separated exact origin allowlist; `CORS_ORIGIN_WEB` is not consumed. Refresh tokens are opaque, so `JWT_REFRESH_SECRET` is obsolete. Password hashing uses the existing PBKDF2 implementation, not `BCRYPT_ROUNDS`.
+
+```sh
+npm run check
+npm run lint
+npm run typecheck
+npm test -- --force
+npm run bundle:android -w @erp/mobile
+```
+
+Tests start real ephemeral MongoDB processes, including replica sets for outbox/inbox transactions. API tests override inherited Mongo URIs and never load the development `.env`. Start a **local test Redis** at `redis://127.0.0.1:6379` for Redis integration; CI supplies Redis 7 and fails if absent. Without Redis, the conditional Redis test is unverified even when other tests pass. `npm audit --json` returns nonzero for findings; do not use `audit fix --force`.
+
+The seed refuses production and database names outside `erp_dev` / `erp_test*`; destructive demo reset additionally requires `SEED_DEV=true`. Use a new test database when verifying the seed. Default seed is idempotent and does not delete unrelated records. Native build/device validation is documented separately in `ANDROID_DEVELOPMENT.md`.
 
 ## Project Structure
 

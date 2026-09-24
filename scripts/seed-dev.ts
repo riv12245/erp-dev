@@ -5,6 +5,7 @@ import { getTenantModel } from '../services/api/src/platform/tenancy/tenant-mode
 import { getUserModel } from '../services/api/src/platform/auth/user-model.js';
 import { getMembershipModel } from '../services/api/src/platform/iam/membership.js';
 import { getRoleModel, getPermissionModel } from '../services/api/src/platform/iam/role-models.js';
+import { BUSINESS_PERMISSIONS } from '../services/api/src/platform/iam/business-permissions.js';
 
 // Development only. Reset affects demo-owned identities and grants, never whole collections.
 const MONGODB_URI = process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27017/erp_dev';
@@ -48,7 +49,7 @@ async function main() {
       // Keep stable user IDs so unrelated memberships and historical audit references survive.
       await User.updateMany({ email: { $in: demoEmails } }, { $set: { status: 'active', failedLoginAttempts: 0 }, $unset: { lockedUntil: 1 } });
     }
-    const adminPermissions = ['audit.read', 'master-data.country.read', 'master-data.country.write'];
+    const adminPermissions = ['audit.read', 'master-data.country.read', 'master-data.country.write', ...BUSINESS_PERMISSIONS];
     for (const name of adminPermissions) {
       await Permission.updateOne({ name }, { $set: { module: name.split('.')[0] } }, { upsert: true });
     }
@@ -63,7 +64,7 @@ async function main() {
       const account = await User.findOneAndUpdate({ email: user.email }, { $set: { ...user, passwordHash, status: 'active', failedLoginAttempts: 0 }, $unset: { lockedUntil: 1 } }, { upsert: true, new: true });
       await Membership.updateOne({ userId: account!._id.toString(), tenantId }, { $set: { roleNames: [role], status: 'active' } }, { upsert: true });
     }
-    console.log('[seed] tenants: 3, users: 4, roles: 6, permissions: 3, memberships: 4');
+    console.log(`[seed] tenants: 3, users: 4, roles: 6, permissions: ${adminPermissions.length}, memberships: 4`);
   } finally { await connection.close(); }
 }
 

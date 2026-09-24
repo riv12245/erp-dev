@@ -16,6 +16,7 @@ export interface TenantContext {
 /** Identity of the authenticated actor. */
 export interface AuthUser {
   readonly userId: UserId;
+  readonly sessionId?: string;
   readonly tenantId?: TenantId;
   readonly email: string;
   readonly roles: readonly string[];

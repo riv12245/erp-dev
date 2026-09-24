@@ -12,6 +12,7 @@ export interface JwtPayload {
   readonly iat: number;
   readonly exp: number;
   readonly jti?: string;
+  readonly sid?: string;
 }
 
 export interface JwtHeader {
@@ -71,6 +72,7 @@ export async function verifyToken(token: string, secret: string): Promise<JwtPay
     if (!payload || typeof payload.sub !== 'string' || !payload.sub.trim()) return null;
     if (!Number.isFinite(payload.exp) || payload.exp * 1000 <= Date.now() || !Number.isFinite(payload.iat)) return null;
     if (payload.tenantId !== undefined && (typeof payload.tenantId !== 'string' || !payload.tenantId.trim())) return null;
+    if (payload.sid !== undefined && (typeof payload.sid !== 'string' || !/^[a-f0-9-]{36}$/.test(payload.sid))) return null;
     if (payload.roles !== undefined && (!Array.isArray(payload.roles) || !payload.roles.every(role => typeof role === 'string'))) return null;
     if (payload.permissions !== undefined && (!Array.isArray(payload.permissions) || !payload.permissions.every(permission => typeof permission === 'string'))) return null;
     return payload;

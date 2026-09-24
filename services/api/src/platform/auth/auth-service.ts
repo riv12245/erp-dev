@@ -5,6 +5,7 @@ export interface AuthTokenPayload {
   readonly email: string;
   readonly tenantId?: string;
   readonly roles?: readonly string[];
+  readonly sessionId?: string;
 }
 
 /** Domain service coordinating hashing, token issuance and verification. */
@@ -28,6 +29,7 @@ export class AuthDomainService {
         sub: payload.userId,
         tenantId: payload.tenantId,
         roles: payload.roles,
+        sid: payload.sessionId,
       },
       this.jwtSecret,
       ttlSeconds,
@@ -42,6 +44,7 @@ export class AuthDomainService {
       email: '',
       tenantId: payload.tenantId,
       roles: payload.roles ?? [],
+      sessionId: payload.sid,
     };
   }
 }
