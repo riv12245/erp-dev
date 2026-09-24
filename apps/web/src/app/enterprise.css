@@ -193,3 +193,9 @@ button { cursor: pointer; }
   .erp-auth-mobile-brand { display:flex; align-items:center; gap:10px; font-size:17px; margin-bottom:52px; }
   .erp-auth-form-card h2 { font-size:26px; }
 }
+
+.erp-not-ready { max-width:740px; padding:32px; display:flex; align-items:flex-start; flex-direction:column; gap:15px; }
+.erp-not-ready .erp-module-icon { display:grid; place-items:center; width:48px; height:48px; border-radius:10px; background:#e4f4ef; color:#087f6b; }
+.erp-not-ready h2 { margin:0; font-size:19px; color:#20363c; }
+.erp-not-ready p { margin:0; max-width:580px; font-size:13px; line-height:1.7; color:#687984; }
+.erp-back-link { align-self:flex-start; }
