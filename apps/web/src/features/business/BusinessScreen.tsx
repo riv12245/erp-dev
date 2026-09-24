@@ -113,6 +113,7 @@ function CompanyWorkspace({ area, onDashboard }: { area: 'crm' | 'inventory' | '
         {companies?.map(company => <option key={company.id} value={company.id}>{company.name}</option>)}
       </select></div>
     </div>
+    {onDashboard && <button type="button" className="erp-button erp-back-link" onClick={onDashboard}>← Volver al inicio</button>}
     {companies === null && !error && <p role="status" className="erp-dashboard-note">Cargando empresas autorizadas…</p>}
     {companies?.length === 0 && <div className="erp-panel"><p className="erp-dashboard-note">No tienes empresas autorizadas. Solicita acceso o crea una empresa si cuentas con el permiso correspondiente.</p></div>}
     {error && <div className="erp-panel" role="alert"><p>{error}</p><RefreshSessionButton /><button type="button" className="erp-button" onClick={() => setRetry(value => value + 1)}>Reintentar</button></div>}
