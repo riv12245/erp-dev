@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Button, Card, Input } from '@erp/ui';
 import { colors } from '@erp/design-tokens';
 import { applyBusinessResult, businessDefinitions, businessError, businessFormBody, businessFormValues, businessRecordId, businessRecordLabel, businessSessionKey, companyFields, createBusinessClient, salesDraftLines } from '@erp/api-client';
@@ -88,6 +88,16 @@ function CompanyWorkspace({ area, onDashboard }: { area: 'crm' | 'inventory' | '
   const [createCompany, setCreateCompany] = React.useState(false);
   const resources: readonly BusinessResource[] = area === 'crm' ? ['customers'] : area === 'sales' ? ['orders'] : area === 'purchasing' ? ['suppliers'] : ['products', 'warehouses', 'stock', 'movements'];
   const [resource, setResource] = React.useState<BusinessResource>(resources[0]);
+  const labels: Record<typeof area, { title: string; description: string }> = {
+    crm: { title: 'Clientes', description: 'Administra tus relaciones comerciales.' },
+    sales: { title: 'Ventas', description: 'Consulta y prepara borradores de pedidos de venta.' },
+    purchasing: { title: 'Compras', description: 'Administra el catálogo de proveedores.' },
+    inventory: { title: 'Inventario', description: 'Productos, almacenes y movimientos de existencias.' },
+  };
+  const resourceLabels: Partial<Record<BusinessResource, string>> = {
+    customers: 'Clientes', orders: 'Borradores', suppliers: 'Proveedores',
+    products: 'Productos', warehouses: 'Almacenes', stock: 'Existencias', movements: 'Movimientos',
+  };
   React.useEffect(() => {
     const controller = new AbortController(); setError(''); setCompanies(null);
     void business.companies(controller.signal).then(result => {
@@ -95,17 +105,22 @@ function CompanyWorkspace({ area, onDashboard }: { area: 'crm' | 'inventory' | '
     }).catch(reason => { if (!controller.signal.aborted) setError(businessError(reason)); });
     return () => controller.abort();
   }, [retry]);
-  return <ScrollView style={styles.root} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-    {onDashboard ? <Button label="Dashboard" variant="secondary" onPress={onDashboard} /> : null}<Text style={styles.title}>{area === 'crm' ? 'Customer management' : area === 'sales' ? 'Sales drafts' : area === 'purchasing' ? 'Supplier catalog' : 'Inventory'}</Text>
-    <Card padded><Text style={styles.heading}>Company</Text><View style={styles.row}>{companies?.map(company => <Button key={company.id} label={company.name} variant={companyId === company.id ? 'primary' : 'outline'} onPress={() => setCompanyId(company.id)} />)}</View>
-      {!companies && !error ? <ActivityIndicator accessibilityLabel="Loading authorized companies" /> : null}
-      {companies?.length === 0 ? <Text>No authorized companies. Create one if permitted, or ask your administrator for access.</Text> : null}
-      {error ? <><Text accessibilityRole="alert">{error}</Text><RefreshSessionButton /><Button label="Retry companies" onPress={() => setRetry(count => count + 1)} /></> : null}
-      {hasPermission('tenancy.company.write') ? <Button label="New company" variant="secondary" onPress={() => setCreateCompany(true)} /> : null}
-    </Card>
-    {createCompany ? <CompanyCreator onCancel={() => setCreateCompany(false)} onCreated={company => { setCompanies(current => [...(current ?? []), company]); setCompanyId(company.id); setCreateCompany(false); }} /> : null}
-    {companyId && companies ? <><View style={styles.row}>{resources.map(item => <Button key={item} label={businessDefinitions[item].title} variant={resource === item ? 'primary' : 'outline'} onPress={() => setResource(item)} />)}</View><RecordWorkspace key={`${companyId}:${resource}`} companyId={companyId} currency={companies.find(company => company.id === companyId)?.defaultCurrency ?? 'MXN'} resource={resource} /></> : null}
-  </ScrollView>;
+  return <div className="erp-business-workspace">
+    <div className="erp-page-heading">
+      <div><p>ESPACIO DE TRABAJO / {labels[area].title.toUpperCase()}</p><h1>{labels[area].title}</h1><span className="erp-subtitle">{labels[area].description}</span></div>
+      <div className="erp-workspace-company"><label htmlFor="erp-current-company">Empresa activa</label><select id="erp-current-company" value={companyId} onChange={event => { setCompanyId(event.target.value); setCreateCompany(false); }} disabled={!companies?.length} aria-label="Empresa autorizada">
+        {!companies?.length && <option value="">Sin empresa</option>}
+        {companies?.map(company => <option key={company.id} value={company.id}>{company.name}</option>)}
+      </select></div>
+    </div>
+    {companies === null && !error && <p role="status" className="erp-dashboard-note">Cargando empresas autorizadas…</p>}
+    {companies?.length === 0 && <div className="erp-panel"><p className="erp-dashboard-note">No tienes empresas autorizadas. Solicita acceso o crea una empresa si cuentas con el permiso correspondiente.</p></div>}
+    {error && <div className="erp-panel" role="alert"><p>{error}</p><RefreshSessionButton /><button type="button" className="erp-button" onClick={() => setRetry(value => value + 1)}>Reintentar</button></div>}
+    {hasPermission('tenancy.company.write') && <div className="erp-workspace-utility"><button type="button" className="erp-button" onClick={() => setCreateCompany(true)}>+ Nueva empresa</button></div>}
+    {createCompany && <div className="erp-record-overlay"><button type="button" className="erp-record-scrim" aria-label="Cerrar formulario de empresa" onClick={() => setCreateCompany(false)}/><aside className="erp-record-panel" aria-label="Crear empresa"><CompanyCreator onCancel={() => setCreateCompany(false)} onCreated={company => { setCompanies(current => [...(current ?? []), company]); setCompanyId(company.id); setCreateCompany(false); }}/></aside></div>}
+    {companyId && companies && <><div className="erp-resource-tabs" role="tablist" aria-label="Secciones del módulo">{resources.map(item => <button key={item} type="button" role="tab" aria-selected={resource === item} className={resource === item ? 'is-active' : ''} onClick={() => setResource(item)}>{resourceLabels[item] ?? businessDefinitions[item].title}</button>)}</div>
+      <RecordWorkspace key={companyId + ':' + resource} companyId={companyId} currency={companies.find(company => company.id === companyId)?.defaultCurrency ?? 'MXN'} resource={resource}/></>}
+  </div>;
 }
 
 function RecordWorkspace({ companyId, resource, currency }: { companyId: string; resource: BusinessResource; currency: string }): React.JSX.Element {
