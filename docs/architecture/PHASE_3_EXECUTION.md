@@ -1,5 +1,7 @@
 # Phase 3 — execution
 
+**2026-09-24 continuation:** the owner has authorized validation and further Git work. The authored-only evidence below is historical; current execution, corrections and blockers are recorded in [VALIDATION_EXECUTION.md](VALIDATION_EXECUTION.md). This does not make the unexecuted database/device checks pass.
+
 Branch: `feat/crm-customer-vertical`; base `codex/core-maturation`; PR #3. Starting head `f22d5bc`, clean nested checkout `erp/erp-dev`.
 
 ## Plan and constraints

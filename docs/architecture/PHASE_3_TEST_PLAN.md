@@ -2,6 +2,8 @@
 
 **Status:** code and regression tests authored; no phase-three tests, builds, lint, typecheck, APK, emulator or Atlas checks were executed by the agent. Static source review is not runtime approval. PR #3 stays draft until the owner validates it.
 
+**Continuation on 2026-09-24:** the status above describes the original handoff. See [VALIDATION_EXECUTION.md](VALIDATION_EXECUTION.md) for subsequent executed checks, regression fixes and remaining integration blockers. The commands below still define the intended full validation; a passing build is not a passing database/device journey.
+
 ## 1. Prepare the checkout
 
 Use the nested clone, not its parent repository. Preserve local changes before pulling.

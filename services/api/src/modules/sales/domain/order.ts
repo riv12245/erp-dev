@@ -64,6 +64,7 @@ function scaled(
   const result = Math.round(value * scale);
 
   if (
+    (value > 0 && result === 0) ||
     Math.abs(result / scale - value) >
     Number.EPSILON * Math.max(1, value)
   ) {

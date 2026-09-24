@@ -87,7 +87,7 @@ export function salesDraftLines(lines: readonly SalesDraftLineInput[], currency 
   return lines.map((line, index) => {
     const quantity = Number(line.quantity), unitPrice = Number(line.unitPrice);
     if (!line.itemId) throw new Error(`Select a product for line ${index + 1}.`);
-    if (!line.quantity.trim() || !Number.isFinite(quantity) || quantity <= 0 || quantity > 1_000_000 || Math.abs(quantity * 1000 - Math.round(quantity * 1000)) > 0.000001) throw new Error(`Line ${index + 1}: quantity must be positive, at most 1,000,000, with at most 3 decimal places.`);
+    if (!line.quantity.trim() || !Number.isFinite(quantity) || quantity < 0.001 || quantity > 1_000_000 || Math.abs(Math.round(quantity * 1000) / 1000 - quantity) > Number.EPSILON * Math.max(1, quantity)) throw new Error(`Line ${index + 1}: quantity must be positive, at most 1,000,000, with at most 3 decimal places.`);
     if (!line.unitPrice.trim() || !Number.isFinite(unitPrice) || unitPrice < 0 || unitPrice > 1_000_000_000 || Number(unitPrice.toFixed(priceDecimals)) !== unitPrice) throw new Error(`Line ${index + 1}: price must be nonnegative, at most 1,000,000,000, with at most ${priceDecimals} decimal places for ${currency}.`);
     return { itemId: line.itemId, quantity, unitPrice };
   });

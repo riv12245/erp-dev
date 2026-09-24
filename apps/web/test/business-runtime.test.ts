@@ -87,6 +87,10 @@ describe('business client and lifetime boundaries', () => {
     expect(() => salesDraftLines([{ itemId: 'product', quantity: '1', unitPrice: '1.5' }], 'JPY')).toThrow('0 decimal places');
     expect(() => salesDraftLines([{ itemId: 'product', quantity: '0', unitPrice: '10' }])).toThrow('quantity');
   });
+
+  it.each(['1e-18', '0.0000000001', '1.0000000001'])('rejects quantities outside the server three-decimal contract: %s', quantity => {
+    expect(() => salesDraftLines([{ itemId: 'product', quantity, unitPrice: '10' }])).toThrow('quantity');
+  });
 });
 
 // Prepared regression: token rotation keeps the same form lifetime and effective permissions.
