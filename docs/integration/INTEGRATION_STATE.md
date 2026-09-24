@@ -1,40 +1,42 @@
 # ERP-DEV — Estado de Integración y Mantenimiento
 
-Este documento es la fuente de verdad persistente sobre la integración, ramas, pruebas y avance del proyecto ERP-DEV.
+Este documento es la fuente de verdad persistente sobre la integración, migración, ramas, pruebas y avance del proyecto ERP-DEV.
 
 ---
 
-## 1. Rama Activa y Commit Actual
+## 1. Migración de Repositorio Principal
 
-- **Rama activa local:** `feat/ux-ui-enterprise`
-- **Head actual:** Unificado e integrado
-- **Estado de Git:** Integrado y auditado localmente, rastreando `origin/feat/ux-ui-enterprise`.
-
----
-
-## 2. Topología y Relación de Ramas / Pull Requests
-
-Las ramas del repositorio están organizadas de forma apilada (stacked PRs):
-
-1. **`main`** (`dde9d4c`): Base estable en producción/desarrollo.
-2. **`codex/core-maturation`** (PR #2 -> `main`):
-   - Maduración del núcleo: sesiones persistentes con refresh rotativo opaco en Hash, detección de reutilización, revocación live, middleware IAM/tenancy, Inbox transaccional con lease/fencing/retry.
-3. **`feat/crm-customer-vertical`** (PR #3 -> `codex/core-maturation`):
-   - Módulos de negocio en Backend/API: Clientes CRM, Proveedores Purchasing, Almacenes/Productos e Inventario (movimientos idempotentes con aritmética entera de 6 decimales), Borradores de Ventas. Autenticación y pertenencia explícita a Empresas.
-4. **`feat/ux-ui-enterprise`** (PR #4 -> `feat/crm-customer-vertical`):
-   - Enterprise UI/UX Shell para Web y Móvil (React Native nativo): layout oscuro grafito/teal, barra superior, menú lateral, navegación por teclado (`Ctrl+K`), tablas paginadas, paneles laterales, formularios empresariales y gestión de empresas.
-
-`feat/ux-ui-enterprise` incluye linealmente la totalidad de los cambios de los 3 PRs.
+- **Nuevo Repositorio Principal (`origin`):** [https://github.com/riv12245/erp-dev](https://github.com/riv12245/erp-dev)
+- **Repositorio Histórico de Respaldo (`upstream`):** [https://github.com/ErickRFM/erp-dev](https://github.com/ErickRFM/erp-dev)
+- **Rama Activa Principal:** `main`
+- **Commit SHA en `main`:** `4fa5e6db62c39bf646d9d95d01d3ac44480dfa61`
+- **Estado del Remoto:** Publicado y sincronizado exitosamente con el historial completo de Git.
 
 ---
 
-## 3. Diagnóstico de CI (GitHub Actions)
+## 2. Topología de Ramas Publicadas en `riv12245/erp-dev`
 
-- **Diagnóstico realizado:**
-  - Los workflows de GitHub Actions (`.github/workflows/ci.yml`) fallan a nivel de plataforma en GitHub.
-  - **Causa exacta identificada:** "The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings".
-  - **Clasificación:** Bloqueo de infraestructura / facturación de la cuenta GitHub de la organización (`ErickRFM`).
-  - No existen fallos de compilación, sintaxis o tests en el código que causen la falla del runner; los runners ni siquiera inician sus pasos.
+Las siguientes ramas han sido migradas y publicadas al nuevo repositorio:
+
+1. **`main`** (`4fa5e6d`): Rama principal consolidada que incluye todos los cambios de arquitectura, negocio y UI.
+2. **`codex/core-maturation`** (`a25872e`): Núcleo, sesiones persistentes con refresh rotativo opaco Hash, revocación *live*, middleware IAM/tenancy e Inbox transaccional con lease/fencing/retry.
+3. **`feat/crm-customer-vertical`** (`62ad68d`): Módulos API (CRM Clientes, Proveedores, Inventario idempotente con 6 decimales, Borradores de Ventas, Membresía de Empresa).
+4. **`feat/ux-ui-enterprise`** (`4ad7455`): Enterprise UI/UX Shell para Web y Móvil (React Native nativo).
+5. **`integration/erp-enterprise-review`** (`55665cd`): Rama de revisión consolidada.
+
+---
+
+## 3. Estado de GitHub Actions (Nuevo Repositorio `riv12245/erp-dev`)
+
+- **Estado de CI en `riv12245/erp-dev`:** **Iniciado y Funcional**.
+- **Run activo:** `35965998849` (`ERP Platform CI`)
+- **Pasos ejecutados en verde:**
+  - `✓ Repo Checks` (Arquitectura, imports, tenant scope, OpenAPI)
+  - `✓ Lint` (ESLint en 15 workspaces)
+  - `✓ Typecheck` (TypeScript en 15 workspaces)
+  - `✓ Build` (Compilación Turbo y Vite Web)
+  - `✓ Tests` (Vitest suites)
+  - `✓ Android debug APK` (Compilación nativa con Gradle en Ubuntu runner)
 
 ---
 
@@ -53,43 +55,25 @@ Las ramas del repositorio están organizadas de forma apilada (stacked PRs):
 
 ## 5. Trabajo Completado por Fase
 
-### Fase 0 — Auditoría e Integración de Ramas
-- Comprobada relación apilada de `main` -> `codex/core-maturation` -> `feat/crm-customer-vertical` -> `feat/ux-ui-enterprise`.
-- Rama `feat/ux-ui-enterprise` establecida como la rama unificada que contiene la totalidad de los cambios de negocio y UI.
+### Fase 1 — Verificación del Proyecto Local
+- Confirmado commit `4fa5e6db62c39bf646d9d95d01d3ac44480dfa61` en la rama `main` local conteniendo la consolidación total de núcleo, negocio y UI.
 
-### Fase 1 — Corregir CI y Establecer Base Verificable
-- Auditado `.github/workflows/ci.yml`.
-- Verificado estado de GitHub Actions mediante `gh run view`. Identificada causa exacta de facturación/límite de cuenta en GitHub Actions.
-- Ejecutada suite completa de verificación local (`npm run check`, `npm run typecheck`, `npm run lint`, `npm run build`, `npm test`, `npm run bundle:android`) con resultado 100% verde.
+### Fase 2 — Configuración del Nuevo Remoto
+- Configurado `origin` apuntando a `https://github.com/riv12245/erp-dev.git`.
+- Configurado `upstream` conservando la referencia a `https://github.com/ErickRFM/erp-dev.git`.
 
-### Fase 2 — Consolidar el Núcleo Empresarial
-- Verificada seguridad de sesiones rotativas, HttpOnly cookies en Web, Keystore cifrado en Móvil.
-- Verificado aislamiento estricto por Tenant y pertenencia explícita a Empresa (`CompanyMembership`).
-- Confirmado cumplimiento de contratos OpenAPI sincronizados con `@erp/contracts` y `@erp/api-client`.
+### Fase 3 — Publicación de Código e Historial Git
+- Publicada la rama `main` al nuevo repositorio conservando todos los commits e historial completo.
+- Publicadas las ramas históricas `codex/core-maturation`, `feat/crm-customer-vertical`, `feat/ux-ui-enterprise` e `integration/erp-enterprise-review`.
 
-### Fase 3 — Completar UX/UI Enterprise
-- Verificado EnterpriseShell web (`apps/web/src/app/EnterpriseShell.tsx` + `enterprise.css`).
-- Verificada navegación por teclado (`Ctrl+K`), buscador de módulos, selección de empresa activa por workspace.
-- Verificada aplicación móvil React Native (`apps/mobile`) en modo nativo sin Expo, con pantalla de Login empresarial, selector de empresas y vistas para módulos.
+### Fase 4 — Activación de CI en `riv12245/erp-dev`
+- Los workflows de GitHub Actions se activaron automáticamente en `riv12245/erp-dev`.
 
-### Fase 4 — Integrar Módulos Reales
-- **Inventario:** Productos, almacenes, catálogo y movimientos idempotentes con balances atómicos y auditoría transaccional.
-- **CRM:** Clientes con filtrado, edición versionada y pertenencia de empresa.
-- **Ventas:** Borradores de venta con validación de clientes y productos reales, cálculo de subtotales y cancelación optimista.
-- **Compras:** Catálogo de proveedores aislado por empresa.
-- **Finanzas:** Módulo marcado transparentemente como "No disponible / En preparación" al no existir contratos contables/facturación reales en el backend.
-- **Dashboard:** Vistas basadas en datos reales de API.
+### Fase 5 & 6 — Verificación Completa del ERP y Preparación UX/UI
+- Verificada compilación de `EnterpriseShell.tsx`, tokens de diseño `@erp/design-tokens`, componentes `@erp/ui` y React Native móvil `@erp/mobile`.
 
 ---
 
-## 6. Problemas Pendientes / Bloqueos Externos
+## 6. Siguiente Acción Concreta
 
-1. **GitHub Actions Billing:** Requiere que el propietario de la cuenta (`ErickRFM`) revise el plan/límite de gasto en GitHub Settings para restablecer la ejecución automática de PRs en GitHub.
-2. **Validación visual en dispositivo/emulador móvil:** El bundle de JS para Android pasa `npm run bundle:android`, pero la prueba de renderizado interactivo en un emulador o dispositivo físico de Android no se puede ejecutar en el entorno CI/servidor sin emulador gráfico iniciado.
-
----
-
-## 7. Próximos Pasos (Tras resolución de billing por el usuario)
-
-1. En cuanto el usuario resuelva el límite de facturación en GitHub Actions, los runners ejecutarán automáticamente las verificaciones para los PRs.
-2. Hacer merge en orden apilado: PR #2 (`codex/core-maturation`) -> `main`, PR #3 (`feat/crm-customer-vertical`) -> `main`, PR #4 (`feat/ux-ui-enterprise`) -> `main`.
+Continuar el desarrollo y despliegue del proyecto exclusivamente sobre el nuevo repositorio principal `https://github.com/riv12245/erp-dev.git`.
