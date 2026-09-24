@@ -53,6 +53,14 @@ Read-only reviewer found no introduced critical/important defect and independent
 
 Ruling: database transaction/isolation, Redis delivery/recovery, real browser/device behavior, native Windows execution and remote CI availability remain unverified. The reviewer explicitly did not certify these. Do not infer them from focused test results or reduce their gates; merging without them risks publishing unverified runtime behavior.
 
+## Final observed results
+
+- On the corrected source, `turbo run build lint typecheck test --force --continue --log-order=stream`: 48/51 tasks passed without cache; only API/web/worker test tasks failed because MongoDB could not be downloaded. 148 tests passed; 136 skipped after database setup failure or missing Redis. No application assertion failed in the executed tests. This is an incomplete, failing full gate.
+- `npm run check`: passed, including 6 architecture fixture tests, 160-file import check, tenant check and 64-operation/471-reference OpenAPI check.
+- `npm run bundle:android -w @erp/mobile`: passed, 6 assets copied. This does not establish APK compilation or device execution.
+- Code and regression fixes published as `73cb55ce95ef50034b2bddc30be238e19f6b7c41` on PR #3. GitHub Actions run `35940605708` was triggered for the stacked PR; all seven jobs failed with empty step lists. The trigger defect is fixed; the external startup block persists.
+- PR #2 and #3 remain unmerged. Main is unchanged. Production is not certified.
+
 ## Open dependencies
 
 Purchase-order lines/receipts, reservations, confirmation, tax and finance recognition require the missing business contracts identified in PHASE_3_EXECUTION.md. Existing scaffolding is not a completed workflow.
