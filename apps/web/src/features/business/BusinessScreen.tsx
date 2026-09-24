@@ -126,33 +126,88 @@ function CompanyWorkspace({ area, onDashboard }: { area: 'crm' | 'inventory' | '
 function RecordWorkspace({ companyId, resource, currency }: { companyId: string; resource: BusinessResource; currency: string }): React.JSX.Element {
   const definition = businessDefinitions[resource];
   const { hasPermission } = usePermissions();
-  const canRead = hasPermission(`${definition.permission}.read`); const canWrite = hasPermission(`${definition.permission}.write`);
-  const [search, setSearch] = React.useState(''); const [status, setStatus] = React.useState('');
-  const [page, setPage] = React.useState(1); const [data, setData] = React.useState<BusinessPage | null>(null);
-  const [error, setError] = React.useState(''); const [revision, setRevision] = React.useState(0);
-  const [selected, setSelected] = React.useState<BusinessRecord | null>(null); const [creating, setCreating] = React.useState(false);
-  const [productId, setProductId] = React.useState(''); const [warehouseId, setWarehouseId] = React.useState('');
+  const canRead = hasPermission(definition.permission + '.read');
+  const canWrite = hasPermission(definition.permission + '.write');
+  const [search, setSearch] = React.useState('');
+  const [status, setStatus] = React.useState('');
+  const [page, setPage] = React.useState(1);
+  const [data, setData] = React.useState<BusinessPage | null>(null);
+  const [error, setError] = React.useState('');
+  const [revision, setRevision] = React.useState(0);
+  const [selected, setSelected] = React.useState<BusinessRecord | null>(null);
+  const [creating, setCreating] = React.useState(false);
+  const [productId, setProductId] = React.useState('');
+  const [warehouseId, setWarehouseId] = React.useState('');
+  const labels: Partial<Record<BusinessResource, string>> = {
+    customers: 'Clientes', orders: 'Borradores de venta', suppliers: 'Proveedores',
+    products: 'Productos', warehouses: 'Almacenes', stock: 'Existencias', movements: 'Movimientos',
+  };
+  const createLabels: Partial<Record<BusinessResource, string>> = {
+    customers: 'Nuevo cliente', orders: 'Nuevo borrador', suppliers: 'Nuevo proveedor',
+    products: 'Nuevo producto', warehouses: 'Nuevo almacén', movements: 'Nuevo movimiento',
+  };
   React.useEffect(() => {
-    const controller = new AbortController(); setData(null); setError('');
-    if (canRead) void applyBusinessResult(business.list(companyId, resource, { page, limit: 20, ...(definition.search ? { [definition.search]: search.trim() || undefined } : {}), status: status || undefined, productId: productId || undefined, warehouseId: warehouseId || undefined }, controller.signal), controller.signal, setData).catch(reason => { if (!controller.signal.aborted) setError(businessError(reason)); });
+    const controller = new AbortController();
+    setData(null); setError('');
+    if (canRead) void applyBusinessResult(
+      business.list(companyId, resource, { page, limit: 20,
+        ...(definition.search ? { [definition.search]: search.trim() || undefined } : {}),
+        status: status || undefined, productId: productId || undefined, warehouseId: warehouseId || undefined
+      }, controller.signal),
+      controller.signal, setData
+    ).catch(reason => { if (!controller.signal.aborted) setError(businessError(reason)); });
     return () => controller.abort();
   }, [companyId, resource, definition.search, canRead, search, status, page, revision, productId, warehouseId]);
-  if (!canRead) return <Card padded><Text>Your account cannot read {definition.title.toLowerCase()}.</Text></Card>;
-  return <View style={styles.section}><Card padded><Text style={styles.heading}>{definition.title}</Text>
-    {definition.search ? <Input label="Search" value={search} onChangeText={value => { setSearch(value); setPage(1); }} /> : null}
-    {resource === 'customers' || resource === 'orders' || resource === 'suppliers' ? <View style={styles.row}>{(resource === 'customers' ? ['', 'active', 'inactive', 'blocked'] : resource === 'suppliers' ? ['', 'active', 'inactive'] : ['', 'DRAFT', 'CANCELLED']).map(value => <Button key={value} label={value || 'All statuses'} variant={status === value ? 'primary' : 'outline'} onPress={() => { setStatus(value); setPage(1); }} />)}</View> : null}
-    {resource === 'stock' || resource === 'movements' ? <><Text>Filter by product and warehouse</Text><Lookup companyId={companyId} resource="products" value={productId} onChange={value => { setProductId(value); setPage(1); }} /><Lookup companyId={companyId} resource="warehouses" value={warehouseId} onChange={value => { setWarehouseId(value); setPage(1); }} /><Button label="Clear filters" variant="secondary" onPress={() => { setProductId(''); setWarehouseId(''); setPage(1); }} /></> : null}
-    <View style={styles.row}><Button label="Refresh" variant="secondary" onPress={() => setRevision(value => value + 1)} />{canWrite && definition.creatable ? <Button label={`New ${resource === 'customers' ? 'customer' : resource === 'products' ? 'product' : resource === 'warehouses' ? 'warehouse' : resource === 'orders' ? 'sales draft' : resource === 'suppliers' ? 'supplier' : 'movement'}`} onPress={() => { setCreating(true); setSelected(null); }} /> : null}</View>
-    {!data && !error ? <ActivityIndicator accessibilityLabel="Loading records" /> : null}
-    {error ? <View style={styles.section}><Text accessibilityRole="alert">{error}</Text><RefreshSessionButton /></View> : null}
-    {data?.items.length === 0 ? <Text>{resource === 'stock' ? 'No stock balances match. Record an inbound movement to receive inventory.' : 'No records match this selection.'}</Text> : null}
-    {data?.items.map(item => <View key={businessRecordId(item)} style={styles.record}><Text style={styles.heading}>{resource === 'stock' ? 'Stock balance' : businessRecordLabel(item)}</Text>{resource === 'stock' || resource === 'movements' ? <><ReferenceName companyId={companyId} resource="products" id={text(item.productId)} label="Product" /><ReferenceName companyId={companyId} resource="warehouses" id={text(item.warehouseId)} label="Warehouse" /></> : null}<Text>{resource === 'stock' ? `On hand ${text(item.onHand)} · Available ${text(item.available)}` : resource === 'movements' ? `${text(item.quantity)} · ${text(item.reason)} · ${text(item.createdAt)}` : `${text(item.email ?? item.sku ?? item.code)} · ${text(item.status ?? (item.isActive ? 'active' : 'inactive'))}`}</Text><Button label="View details" variant="outline" onPress={() => { setSelected(item); setCreating(false); }} /></View>)}
-    {data ? <View style={styles.row}><Button label="Previous" disabled={page <= 1} onPress={() => setPage(page - 1)} /><Text>{data.total} records · Page {page} of {Math.max(1, data.totalPages)}</Text><Button label="Next" disabled={page >= data.totalPages} onPress={() => setPage(page + 1)} /></View> : null}
-  </Card>
-  {creating && canWrite && resource === 'orders' ? <SalesDraftEditor companyId={companyId} currency={currency} onCancel={() => setCreating(false)} onSaved={record => { setCreating(false); setSelected(record); setRevision(value => value + 1); }} /> : null}
-  {creating && canWrite && resource !== 'orders' ? <RecordEditor key="new" companyId={companyId} resource={resource} onCancel={() => setCreating(false)} onSaved={record => { setCreating(false); setSelected(record); setRevision(value => value + 1); }} /> : null}
-  {selected ? <RecordDetail key={businessRecordId(selected)} companyId={companyId} resource={resource} initial={selected} canWrite={canWrite} onClose={() => setSelected(null)} onChanged={() => setRevision(value => value + 1)} /> : null}
-  </View>;
+  if (!canRead) return <div role="status" className="erp-panel">Tu cuenta no tiene permiso para consultar {labels[resource] ?? definition.title} en esta empresa.</div>;
+  const panelOpen = creating || selected !== null;
+  return <div className="erp-record-workspace">
+    <section className="erp-record-list" aria-label={labels[resource] ?? definition.title}>
+      <div className="erp-record-heading">
+        <div><h2>{labels[resource] ?? definition.title}</h2><p>{data ? String(data.total) + ' registros' : 'Información de la empresa seleccionada'}</p></div>
+        <div className="erp-record-actions">
+          <button type="button" className="erp-button" onClick={() => setRevision(value => value + 1)}>↻ Actualizar</button>
+          {canWrite && definition.creatable && <button type="button" className="erp-button erp-button--primary" onClick={() => { setCreating(true); setSelected(null); }}>+ {createLabels[resource] ?? 'Nuevo registro'}</button>}
+        </div>
+      </div>
+      <div className="erp-table-toolbar">
+        {definition.search && <div className="erp-record-search"><Input label="Buscar" value={search} onChangeText={value => { setSearch(value); setPage(1); }} placeholder="Buscar por nombre o referencia…"/></div>}
+        {(resource === 'customers' || resource === 'orders' || resource === 'suppliers') && <label className="erp-status-filter">Estado
+          <select value={status} onChange={event => { setStatus(event.target.value); setPage(1); }}>
+            {(resource === 'customers' ? ['', 'active', 'inactive', 'blocked'] : resource === 'suppliers' ? ['', 'active', 'inactive'] : ['', 'DRAFT', 'CANCELLED']).map(value => <option value={value} key={value}>{value || 'Todos'}</option>)}
+          </select>
+        </label>}
+        {(resource === 'stock' || resource === 'movements') && <details className="erp-record-filters"><summary>Filtros de producto y almacén</summary>
+          <div className="erp-record-filter-body">
+            <Lookup companyId={companyId} resource="products" value={productId} onChange={value => { setProductId(value); setPage(1); }}/>
+            <Lookup companyId={companyId} resource="warehouses" value={warehouseId} onChange={value => { setWarehouseId(value); setPage(1); }}/>
+            <Button label="Limpiar filtros" variant="secondary" onPress={() => { setProductId(''); setWarehouseId(''); setPage(1); }}/>
+          </div>
+        </details>}
+      </div>
+      {!data && !error && <div className="erp-record-feedback" role="status"><ActivityIndicator color={colors.primary[600]} accessibilityLabel="Cargando registros"/> Cargando registros…</div>}
+      {error && <div className="erp-record-feedback" role="alert"><p>{error}</p><RefreshSessionButton/><button type="button" className="erp-button" onClick={() => setRevision(value => value + 1)}>Reintentar</button></div>}
+      {data?.items.length === 0 && <div className="erp-record-feedback" role="status"><strong>Sin resultados</strong><p>{resource === 'stock' ? 'No hay existencias que coincidan. Registra una entrada de inventario cuando corresponda.' : 'No se encontraron registros para esta selección.'}</p></div>}
+      {data && data.items.length > 0 && <div className="erp-table-scroll"><table className="erp-data-table">
+        <thead><tr><th scope="col">Registro</th><th scope="col">{resource === 'orders' ? 'Cliente (ID)' : resource === 'stock' || resource === 'movements' ? 'Producto (ID)' : 'Referencia'}</th><th scope="col">{resource === 'stock' ? 'Disponible' : resource === 'movements' ? 'Cantidad' : 'Estado'}</th><th scope="col">{resource === 'orders' ? 'Subtotal' : resource === 'stock' || resource === 'movements' ? 'Almacén (ID)' : 'Información'}</th><th scope="col">Acciones</th></tr></thead>
+        <tbody>{data.items.map(item => <tr key={businessRecordId(item)}>
+          <td><strong>{resource === 'stock' ? 'Existencia' : businessRecordLabel(item)}</strong><small>{resource === 'movements' ? text(item.createdAt) : resource === 'orders' ? text(item.number) : resource === 'products' ? text(item.category) : ''}</small></td>
+          <td>{resource === 'orders' ? text(item.customerId) : resource === 'stock' || resource === 'movements' ? text(item.productId) : text(item.sku ?? item.code ?? item.email ?? businessRecordId(item))}</td>
+          <td>{resource === 'stock' ? text(item.available) : resource === 'movements' ? text(item.quantity) : <span className={'erp-table-status ' + ((item.status === 'CANCELLED' || item.status === 'inactive' || item.status === 'blocked' || item.isActive === false) ? 'is-muted' : '')}>{text(item.status ?? (item.isActive === false ? 'Inactivo' : item.isActive === true ? 'Activo' : '—'))}</span>}</td>
+          <td>{resource === 'orders' ? text(item.subtotal) + ' ' + text(item.currency ?? currency) : resource === 'stock' || resource === 'movements' ? text(item.warehouseId) : text(item.phone ?? item.unitOfMeasure ?? item.reason ?? '—')}</td>
+          <td><button type="button" className="erp-row-action" onClick={() => { setSelected(item); setCreating(false); }} aria-label={'Ver detalles de ' + businessRecordLabel(item)}>Ver detalle →</button></td>
+        </tr>)}</tbody>
+      </table></div>}
+      {data && <div className="erp-record-pagination"><span>Página {page} de {Math.max(1, data.totalPages)} · {data.total} registros</span><div><button type="button" className="erp-button" disabled={page <= 1} onClick={() => setPage(page - 1)}>Anterior</button><button type="button" className="erp-button" disabled={page >= data.totalPages} onClick={() => setPage(page + 1)}>Siguiente</button></div></div>}
+    </section>
+    {panelOpen && <div className="erp-record-overlay">
+      <div className="erp-record-scrim" aria-hidden="true"/>
+      <aside role="dialog" aria-modal="true" aria-label={creating ? createLabels[resource] ?? 'Nuevo registro' : 'Detalle del registro'} className="erp-record-panel">
+        {creating && canWrite && resource === 'orders' && <SalesDraftEditor companyId={companyId} currency={currency} onCancel={() => setCreating(false)} onSaved={record => { setCreating(false); setSelected(record); setRevision(value => value + 1); }}/>}
+        {creating && canWrite && resource !== 'orders' && <RecordEditor key="new" companyId={companyId} resource={resource} onCancel={() => setCreating(false)} onSaved={record => { setCreating(false); setSelected(record); setRevision(value => value + 1); }}/>}
+        {selected && <RecordDetail key={businessRecordId(selected)} companyId={companyId} resource={resource} initial={selected} canWrite={canWrite} onClose={() => setSelected(null)} onChanged={() => setRevision(value => value + 1)}/>}
+      </aside>
+    </div>}
+  </div>;
 }
 
 function RecordEditor({ companyId, resource, record, onSaved, onCancel }: { companyId: string; resource: BusinessResource; record?: BusinessRecord; onSaved: (record: BusinessRecord) => void; onCancel: () => void }): React.JSX.Element {
