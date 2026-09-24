@@ -160,3 +160,36 @@ button { cursor: pointer; }
   .erp-record-pagination { padding:12px 13px; }
   .erp-record-panel { padding:20px 16px; }
 }
+
+
+/* Public sign-in: clear company context, accessible form, no phantom actions. */
+.erp-auth { min-height:100dvh; display:grid; grid-template-columns:minmax(320px,45%) minmax(0,1fr); background:#f4f7f8; }
+.erp-auth-brand { background:radial-gradient(ellipse at 100% 100%,#17675d 0,transparent 55%),linear-gradient(155deg,#15262d,#1b3438); color:#fff; padding:44px clamp(32px,5vw,88px); display:flex; flex-direction:column; justify-content:space-between; min-height:100dvh; }
+.erp-auth-logo { display:flex; align-items:center; gap:12px; font-size:19px; letter-spacing:-.025em; }
+.erp-auth-logo .erp-brand-mark { width:43px; height:43px; flex-basis:43px; }
+.erp-auth-brand-message span,.erp-auth-eyebrow { color:#62d6bc; letter-spacing:.13em; font-size:11px; font-weight:750; }
+.erp-auth-brand-message h1 { font-size:clamp(37px,4.2vw,58px); line-height:1.13; letter-spacing:-.045em; margin:21px 0 19px; }
+.erp-auth-brand-message p { color:#bfd0d0; font-size:14px; max-width:350px; line-height:1.85; }
+.erp-auth-foot { color:#87a3a5; font-size:11px; }
+.erp-auth-form-area { display:grid; place-items:center; padding:38px; }
+.erp-auth-form-card { width:100%; max-width:420px; }
+.erp-auth-mobile-brand { display:none; }
+.erp-auth-eyebrow { color:#008d75; font-size:10px; }
+.erp-auth-form-card h2 { font-size:30px; letter-spacing:-.035em; margin:12px 0 8px; line-height:1.15; color:#182b32; }
+.erp-auth-intro { color:#72858f; line-height:1.6; font-size:13px; margin:0 0 29px; }
+.erp-auth-form { display:flex; flex-direction:column; gap:9px; }
+.erp-auth-form label { font-size:12px; font-weight:700; color:#344d57; margin-top:9px; }
+.erp-auth-form input { width:100%; min-height:47px; border:1px solid #d7e2e4; background:#fff; padding:0 14px; border-radius:8px; outline-offset:2px; color:#182b32; font-size:14px; }
+.erp-auth-form input:focus { border-color:#00977d; box-shadow:0 0 0 3px #00977d20; }
+.erp-auth-form input::placeholder { color:#a0adb5; }
+.erp-auth-submit { width:100%; min-height:47px; margin-top:15px; font-size:13px; }
+.erp-auth-submit:disabled { opacity:.6; cursor:wait; }
+.erp-auth-help { border-top:1px solid #dfe7e9; margin-top:31px; padding-top:19px; color:#81939c; font-size:11px; line-height:1.6; }
+.erp-auth-error { margin:4px 0; padding:11px; background:#fff0f1; border:1px solid #ffdade; color:#a8313f; font-size:12px; border-radius:7px; }
+@media(max-width:750px) {
+  .erp-auth { display:block; }
+  .erp-auth-brand { display:none; }
+  .erp-auth-form-area { min-height:100dvh; padding:30px 22px; }
+  .erp-auth-mobile-brand { display:flex; align-items:center; gap:10px; font-size:17px; margin-bottom:52px; }
+  .erp-auth-form-card h2 { font-size:26px; }
+}
