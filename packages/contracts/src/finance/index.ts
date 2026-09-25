@@ -9,4 +9,11 @@ export type {
   Transaction,
   TransactionType,
   BalanceSheet,
+  ObligationType,
+  ObligationStatus,
+  FinancialObligationDTO,
+  FinancialPaymentDTO,
+  CreateObligationRequest,
+  RecordPaymentRequest,
+  ObligationListResult,
 } from "./types.js";

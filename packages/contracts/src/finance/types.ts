@@ -84,3 +84,69 @@ export interface BalanceSheet {
   readonly isBalanced: boolean;
   readonly createdAt: string;
 }
+
+export type ObligationType = 'receivable' | 'payable';
+export type ObligationStatus = 'PENDING' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED';
+
+export interface FinancialObligationDTO {
+  readonly obligationId: string;
+  readonly number: string;
+  readonly tenantId: string;
+  readonly companyId: string;
+  readonly type: ObligationType;
+  readonly partyId: string;
+  readonly referenceId: string;
+  readonly currency: string;
+  readonly amount: number;
+  readonly paidAmount: number;
+  readonly remainingAmount: number;
+  readonly status: ObligationStatus;
+  readonly dueDate?: string;
+  readonly description: string;
+  readonly version: number;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly createdBy: string;
+  readonly updatedBy: string;
+}
+
+export interface FinancialPaymentDTO {
+  readonly paymentId: string;
+  readonly obligationId: string;
+  readonly tenantId: string;
+  readonly companyId: string;
+  readonly amount: number;
+  readonly paymentMethod: string;
+  readonly reference: string;
+  readonly note?: string;
+  readonly createdAt: string;
+  readonly createdBy: string;
+}
+
+export interface CreateObligationRequest {
+  readonly type: ObligationType;
+  readonly partyId: string;
+  readonly referenceId: string;
+  readonly currency: string;
+  readonly amount: number;
+  readonly description: string;
+  readonly dueDate?: string;
+  readonly idempotencyKey: string;
+}
+
+export interface RecordPaymentRequest {
+  readonly amount: number;
+  readonly paymentMethod: string;
+  readonly reference: string;
+  readonly note?: string;
+  readonly idempotencyKey: string;
+  readonly expectedVersion: number;
+}
+
+export interface ObligationListResult {
+  readonly items: readonly FinancialObligationDTO[];
+  readonly total: number;
+  readonly page: number;
+  readonly limit: number;
+  readonly totalPages: number;
+}

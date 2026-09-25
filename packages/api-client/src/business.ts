@@ -2,9 +2,9 @@ import type { ApiClient } from './client.js';
 import { ApiClientError, createCorrelationId } from './errors.js';
 
 export interface BusinessCompany { readonly id: string; readonly name: string; readonly defaultCurrency: string; }
-export interface BusinessRecord { readonly [key: string]: unknown; readonly id?: string; readonly customerId?: string; readonly supplierId?: string; readonly orderId?: string; readonly version?: number; }
+export interface BusinessRecord { readonly [key: string]: unknown; readonly id?: string; readonly customerId?: string; readonly supplierId?: string; readonly orderId?: string; readonly obligationId?: string; readonly version?: number; }
 export interface BusinessPage { readonly items: readonly BusinessRecord[]; readonly total: number; readonly page: number; readonly limit: number; readonly totalPages: number; }
-export type BusinessResource = 'customers' | 'products' | 'warehouses' | 'stock' | 'movements' | 'orders' | 'suppliers';
+export type BusinessResource = 'customers' | 'products' | 'warehouses' | 'stock' | 'movements' | 'orders' | 'suppliers' | 'obligations';
 export interface BusinessField { readonly key: string; readonly label: string; readonly required?: boolean; readonly numeric?: boolean; readonly choices?: readonly string[]; readonly initial?: string; readonly lookup?: 'products' | 'warehouses' | 'customers'; }
 export interface BusinessDefinition { readonly title: string; readonly path: string; readonly permission: string; readonly fields: readonly BusinessField[]; readonly search?: string; readonly editable?: boolean; readonly creatable?: boolean; }
 export const companyFields: readonly BusinessField[] = [
@@ -43,8 +43,16 @@ export const businessDefinitions: Readonly<Record<BusinessResource, BusinessDefi
     { key: 'quantity', label: 'Quantity (signed for adjustment)', numeric: true, required: true }, { key: 'reason', label: 'Reason', required: true },
     { key: 'referenceId', label: 'Reference' },
   ] },
+  obligations: { title: 'Financial obligations', path: 'finance/obligations', permission: 'finance', creatable: true, fields: [
+    { key: 'type', label: 'Type', choices: ['receivable', 'payable'], initial: 'receivable', required: true },
+    { key: 'partyId', label: 'Party ID', required: true },
+    { key: 'referenceId', label: 'Reference ID', required: true },
+    { key: 'currency', label: 'Currency', required: true, initial: 'MXN' },
+    { key: 'amount', label: 'Amount', numeric: true, required: true },
+    { key: 'description', label: 'Description', required: true },
+  ] },
 };
-export function businessRecordId(record: BusinessRecord): string { return record.orderId ?? record.supplierId ?? record.customerId ?? record.id ?? `${String(record.productId)}:${String(record.warehouseId)}`; }
+export function businessRecordId(record: BusinessRecord): string { return record.obligationId ?? record.orderId ?? record.supplierId ?? record.customerId ?? record.id ?? `${String(record.productId)}:${String(record.warehouseId)}`; }
 export function businessRecordLabel(record: BusinessRecord): string { return String(record.name ?? record.number ?? record.sku ?? record.code ?? record.type ?? record.productId ?? businessRecordId(record)); }
 export function businessFormValues(fields: readonly BusinessField[], record?: BusinessRecord): Record<string, string> {
   return Object.fromEntries(fields.map(field => [field.key, record ? String(record[field.key] ?? '') : field.initial ?? '']));
@@ -107,6 +115,7 @@ export function createBusinessClient(client: ApiClient) {
     confirmOrder: (companyId: string, id: string, expectedVersion: number, signal?: AbortSignal) => client.post<BusinessRecord>(`${path(companyId, 'orders')}/${encodeURIComponent(id)}/confirm`, { expectedVersion }, { signal }),
     cancelOrder: (companyId: string, id: string, expectedVersion: number, signal?: AbortSignal) => client.post<BusinessRecord>(`${path(companyId, 'orders')}/${encodeURIComponent(id)}/cancel`, { expectedVersion }, { signal }),
     receiveGoods: (companyId: string, id: string, expectedVersion: number, signal?: AbortSignal) => client.post<BusinessRecord>(`/api/v1/companies/${encodeURIComponent(companyId)}/purchasing/orders/${encodeURIComponent(id)}/receive`, { expectedVersion }, { signal }),
+    recordPayment: (companyId: string, obligationId: string, body: Readonly<Record<string, unknown>>, signal?: AbortSignal) => client.post<BusinessRecord>(`/api/v1/companies/${encodeURIComponent(companyId)}/finance/obligations/${encodeURIComponent(obligationId)}/payments`, body, { signal }),
     movementKey: createCorrelationId,
   };
 }
