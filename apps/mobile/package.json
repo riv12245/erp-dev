@@ -8,6 +8,8 @@
     "ios": "react-native run-ios",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:unit": "vitest run --reporter=verbose --passWithNoTests",
     "dev": "react-native start",
     "prebundle:android": "node -e \"require('node:fs').mkdirSync('dist', {recursive: true})\"",
     "bundle:android": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output dist/index.android.bundle --assets-dest dist/assets"
@@ -32,6 +34,7 @@
   },
   "devDependencies": {
     "typescript": "^5.7.2",
+    "vitest": "^4.1.11",
     "@types/react": "^18.2.48",
     "@react-native-community/cli": "13.6.9",
     "@react-native/babel-preset": "0.74.87",
