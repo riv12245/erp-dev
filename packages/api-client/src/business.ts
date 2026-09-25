@@ -104,6 +104,7 @@ export function createBusinessClient(client: ApiClient) {
       return client.post<BusinessRecord>(path(companyId, resource), body, { signal, idempotencyKey: key, idempotencyGuaranteed: !!key });
     },
     update: (companyId: string, resource: BusinessResource, id: string, body: Readonly<Record<string, unknown>>, signal?: AbortSignal) => client.patch<BusinessRecord>(`${path(companyId, resource)}/${encodeURIComponent(id)}`, body, { signal }),
+    confirmOrder: (companyId: string, id: string, expectedVersion: number, signal?: AbortSignal) => client.post<BusinessRecord>(`${path(companyId, 'orders')}/${encodeURIComponent(id)}/confirm`, { expectedVersion }, { signal }),
     cancelOrder: (companyId: string, id: string, expectedVersion: number, signal?: AbortSignal) => client.post<BusinessRecord>(`${path(companyId, 'orders')}/${encodeURIComponent(id)}/cancel`, { expectedVersion }, { signal }),
     movementKey: createCorrelationId,
   };

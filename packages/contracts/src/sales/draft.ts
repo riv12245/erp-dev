@@ -8,7 +8,7 @@ export interface DraftSalesOrderLine extends DraftSalesOrderLineInput { readonly
 export interface DraftSalesOrderDTO {
   readonly orderId: string; readonly number: string; readonly tenantId: string; readonly companyId: string;
   readonly customerId: string; readonly warehouseId: string; readonly currency: string;
-  readonly status: 'DRAFT' | 'CANCELLED'; readonly lines: readonly DraftSalesOrderLine[];
+  readonly status: 'DRAFT' | 'CONFIRMED' | 'CANCELLED'; readonly lines: readonly DraftSalesOrderLine[];
   readonly subtotal: number; readonly total: null; readonly taxAmount: null;
   readonly pricingStatus: 'tax-policy-required'; readonly version: number;
   readonly createdAt: string; readonly updatedAt: string; readonly createdBy: string; readonly updatedBy: string;

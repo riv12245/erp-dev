@@ -8,7 +8,7 @@
 | **Tenancy & Companies** | Completo | Creación de Empresa, Pertenencia Explícita (`CompanyMembership`), Contexto Header | — | `tenancy.company.*` | 5 tests |
 | **CRM** | Funcional | Crear, Listar, Buscar, Editar versión, Cambiar Estado (Clientes) | Flujo CRM deals/oportunidades | `crm.customers.*` | 7 tests |
 | **Inventario** | Funcional | Productos, Almacenes, Balances, Movimientos Idempotentes | Reservas automáticas | `inventory.*` | 18 tests |
-| **Ventas** | Parcial | Crear Borrador, Consultar Disponibilidad, Cancelar Borrador | Confirmación de Pedido & Deducción de Stock | `sales.orders.*` | 7 tests |
+| **Ventas** | Funcional | Crear Borrador, Confirmar Pedido (Deducción Stock), Cancelar Borrador, Historial | Facturación fiscal | `sales.orders.*` | 8 tests |
 | **Compras** | Parcial | Proveedores Crear/Listar/Editar | Recepción de Órdenes e Ingreso a Almacén | `purchasing.suppliers.*` | 7 tests |
 | **Finanzas** | Estructura | Pantalla de aviso "En preparación", Contratos iniciales | Cuentas por Cobrar/Pagar, Pagos reales | `finance.*` | Contratos |
 | **Producción** | Estructura | Contratos iniciales | Órdenes de Producción, Listas de Materiales | `production.*` | Pendiente |

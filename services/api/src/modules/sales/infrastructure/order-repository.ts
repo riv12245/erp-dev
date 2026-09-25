@@ -9,7 +9,7 @@ const schema = new mongoose.Schema<OrderRow>({
   orderId: { type: String, required: true }, number: { type: String, required: true },
   tenantId: { type: String, required: true }, companyId: { type: String, required: true },
   customerId: { type: String, required: true }, warehouseId: { type: String, required: true },
-  currency: { type: String, required: true }, status: { type: String, enum: ['DRAFT', 'CANCELLED'], required: true },
+  currency: { type: String, required: true }, status: { type: String, enum: ['DRAFT', 'CONFIRMED', 'CANCELLED'], required: true },
   lines: { type: [line], required: true }, subtotal: { type: Number, required: true },
   total: { type: mongoose.Schema.Types.Mixed, default: null }, taxAmount: { type: mongoose.Schema.Types.Mixed, default: null },
   pricingStatus: { type: String, enum: ['tax-policy-required'], required: true }, version: { type: Number, required: true },
@@ -40,6 +40,9 @@ export class OrderRepository extends TenantScopedRepository {
   }
   cancel(orderId: string, version: number, session: mongoose.ClientSession) {
     return this.orders.findOneAndUpdate(this.filter({ orderId, version, status: 'DRAFT' }), { $set: { status: 'CANCELLED', updatedBy: this.scope.userId }, $inc: { version: 1 } }, { new: true, session }).exec();
+  }
+  confirm(orderId: string, version: number, session: mongoose.ClientSession) {
+    return this.orders.findOneAndUpdate(this.filter({ orderId, version, status: 'DRAFT' }), { $set: { status: 'CONFIRMED', updatedBy: this.scope.userId }, $inc: { version: 1 } }, { new: true, session }).exec();
   }
   async list(page: number, limit: number, status?: string, customerId?: string) {
     const filter = this.filter({ ...(status ? { status } : {}), ...(customerId ? { customerId } : {}) });

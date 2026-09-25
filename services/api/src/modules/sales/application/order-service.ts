@@ -72,8 +72,30 @@ export class SalesOrderService {
     const page = query.page === undefined ? 1 : Number(query.page);
     const limit = query.limit === undefined ? 20 : Number(query.limit);
     if ((query.page !== undefined && typeof query.page !== 'string') || (query.limit !== undefined && typeof query.limit !== 'string') || !Number.isSafeInteger(page) || page < 1 || page > 1000000 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw AppError.validation('Invalid pagination');
-    if (query.status !== undefined && query.status !== 'DRAFT' && query.status !== 'CANCELLED') throw AppError.validation('Invalid order status');
+    if (query.status !== undefined && query.status !== 'DRAFT' && query.status !== 'CONFIRMED' && query.status !== 'CANCELLED') throw AppError.validation('Invalid order status');
     return this.repo(scope).list(page, limit, query.status as string | undefined, query.customerId === undefined ? undefined : identifier(query.customerId));
+  }
+  async confirm(scope: CompanyScope, id: string, body: unknown, correlationId?: string): Promise<DraftSalesOrderDTO> {
+    identifier(id); const version = expectedVersion(body);
+    return this.transaction(async session => {
+      const repo = this.repo(scope); const before = await repo.one({ orderId: id }, session);
+      if (!before) throw AppError.notFound('Sales order not found');
+      if (before.status !== 'DRAFT') throw AppError.conflict('Only a current draft can be confirmed');
+      const inventory = new InventoryService(this.connection);
+      for (const line of before.lines) {
+        await inventory.recordMovement(scope, {
+          productId: line.itemId, warehouseId: before.warehouseId, type: 'outbound',
+          quantity: line.quantity, reason: `Sales order confirmation ${before.number}`,
+          idempotencyKey: `sales_confirm_${id}_${line.itemId}_${line.lineId}`, referenceId: id,
+        }, correlationId, session);
+      }
+      const row = await repo.confirm(id, version, session);
+      if (!row) throw AppError.conflict('Version conflict while confirming order');
+      await new AuditService(this.connection).record({ tenantId: scope.tenantId, companyId: scope.companyId, actorId: scope.userId,
+        action: 'sales.order.confirmed', entityType: 'SalesOrder', entityId: id, correlationId,
+        before: { version: before.version, status: before.status }, after: { version: row.version, status: row.status } }, session);
+      return orderDto(row);
+    });
   }
   async cancel(scope: CompanyScope, id: string, body: unknown, correlationId?: string): Promise<DraftSalesOrderDTO> {
     identifier(id); const version = expectedVersion(body);

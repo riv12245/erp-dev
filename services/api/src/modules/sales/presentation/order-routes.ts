@@ -22,6 +22,9 @@ export function registerOrderRoutes(router: Router): void {
   router.get(`${path}/:orderId`, requirePermission('sales.order.read'), asyncHandler(async (req, res) => {
     const { scope, service } = await context(req); ok(res, await service.get(scope, String(req.params.orderId)));
   }));
+  router.post(`${path}/:orderId/confirm`, requirePermission('sales.order.write'), asyncHandler(async (req, res) => {
+    const { scope, service } = await context(req); ok(res, await service.confirm(scope, String(req.params.orderId), req.body, req.correlationId));
+  }));
   router.post(`${path}/:orderId/cancel`, requirePermission('sales.order.write'), asyncHandler(async (req, res) => {
     const { scope, service } = await context(req); ok(res, await service.cancel(scope, String(req.params.orderId), req.body, req.correlationId));
   }));
