@@ -9,7 +9,7 @@
 | **CRM** | Funcional | Crear, Listar, Buscar, Editar versión, Cambiar Estado (Clientes) | Flujo CRM deals/oportunidades | `crm.customers.*` | 7 tests |
 | **Inventario** | Funcional | Productos, Almacenes, Balances, Movimientos Idempotentes | Reservas automáticas | `inventory.*` | 18 tests |
 | **Ventas** | Funcional | Crear Borrador, Confirmar Pedido (Deducción Stock), Cancelar Borrador, Historial | Facturación fiscal | `sales.orders.*` | 8 tests |
-| **Compras** | Parcial | Proveedores Crear/Listar/Editar | Recepción de Órdenes e Ingreso a Almacén | `purchasing.suppliers.*` | 7 tests |
+| **Compras** | Funcional | Proveedores Crear/Listar/Editar, Órdenes de Compra, Recepción de Mercancía e Ingreso a Almacén | Facturación de Proveedores | `purchasing.suppliers.*` | 10 tests |
 | **Finanzas** | Estructura | Pantalla de aviso "En preparación", Contratos iniciales | Cuentas por Cobrar/Pagar, Pagos reales | `finance.*` | Contratos |
 | **Producción** | Estructura | Contratos iniciales | Órdenes de Producción, Listas de Materiales | `production.*` | Pendiente |
 | **Logística** | Estructura | Contratos iniciales | Despacho y Seguimiento de Guías | `logistics.*` | Pendiente |
