@@ -194,7 +194,7 @@ function RecordDetail({ companyId, resource, initial, canWrite, onClose, onChang
   const definition = businessDefinitions[resource]; const requestSignal = useRequestSignal();
   const [record, setRecord] = React.useState<BusinessRecord | null>(definition.editable ? null : initial);
   const [error, setError] = React.useState(''); const [revision, setRevision] = React.useState(0);
-  const [editing, setEditing] = React.useState(false); const [confirm, setConfirm] = React.useState(false); const [busy, setBusy] = React.useState(false);
+  const [editing, setEditing] = React.useState(false); const [confirm, setConfirm] = React.useState(false); const [confirmingOrder, setConfirmingOrder] = React.useState(false); const [busy, setBusy] = React.useState(false);
   React.useEffect(() => {
     const controller = new AbortController();
     if (definition.editable) { setEditing(false); setRecord(null); setError(''); void business.detail(companyId, resource, businessRecordId(initial), controller.signal).then(result => { if (!controller.signal.aborted) setRecord(result); }).catch(reason => { if (!controller.signal.aborted) setError(businessError(reason)); }); }
@@ -208,9 +208,18 @@ function RecordDetail({ companyId, resource, initial, canWrite, onClose, onChang
     catch (reason) { if (!signal.aborted) setError(businessError(reason)); }
     finally { release(); if (!signal.aborted) setBusy(false); }
   };
+  const confirmSalesOrder = async () => {
+    if (!record) return;
+    const { signal, release } = requestSignal();
+    setBusy(true); setError('');
+    try { const updated = await business.confirmOrder(companyId, businessRecordId(record), record.version!, signal); if (!signal.aborted) { setRecord(updated); setConfirmingOrder(false); onChanged(); } }
+    catch (reason) { if (!signal.aborted) setError(businessError(reason)); }
+    finally { release(); if (!signal.aborted) setBusy(false); }
+  };
   if (editing && record && canWrite) return <RecordEditor key={String(record.version)} companyId={companyId} resource={resource} record={record} onCancel={() => setEditing(false)} onSaved={updated => { setRecord(updated); setEditing(false); onChanged(); }} />;
   return <Card padded><Text style={styles.heading}>Details</Text>{!record && !error ? <ActivityIndicator /> : null}{error ? <View style={styles.section}><Text accessibilityRole="alert">{error}</Text><RefreshSessionButton /></View> : null}{record ? <RecordSummary companyId={companyId} resource={resource} record={record} /> : null}
-    <View style={styles.row}>{definition.editable ? <Button label="Reload details" variant="secondary" disabled={busy} onPress={() => { setConfirm(false); setRevision(value => value + 1); }} /> : null}{canWrite && definition.editable && resource !== 'orders' && record ? <><Button label="Edit" disabled={busy} onPress={() => setEditing(true)} /><Button label={record.status === 'active' || record.isActive === true ? 'Deactivate' : 'Activate'} variant="secondary" disabled={busy} onPress={() => setConfirm(true)} /></> : null}{canWrite && resource === 'orders' && record?.status === 'DRAFT' ? <Button label="Cancel draft" variant="danger" disabled={busy} onPress={() => setConfirm(true)} /> : null}<Button label="Close details" variant="secondary" disabled={busy} onPress={onClose} /></View>
+    <View style={styles.row}>{definition.editable ? <Button label="Reload details" variant="secondary" disabled={busy} onPress={() => { setConfirm(false); setConfirmingOrder(false); setRevision(value => value + 1); }} /> : null}{canWrite && definition.editable && resource !== 'orders' && record ? <><Button label="Edit" disabled={busy} onPress={() => setEditing(true)} /><Button label={record.status === 'active' || record.isActive === true ? 'Deactivate' : 'Activate'} variant="secondary" disabled={busy} onPress={() => setConfirm(true)} /></> : null}{canWrite && resource === 'orders' && record?.status === 'DRAFT' ? <><Button label="Confirm order" variant="primary" disabled={busy} onPress={() => { setConfirmingOrder(true); setConfirm(false); }} /><Button label="Cancel draft" variant="danger" disabled={busy} onPress={() => { setConfirm(true); setConfirmingOrder(false); }} /></> : null}<Button label="Close details" variant="secondary" disabled={busy} onPress={onClose} /></View>
+    {confirmingOrder ? <View style={styles.section}><Text>Confirm this order? Confirmed orders deduct inventory for each line item and cannot be reverted to draft.</Text><Button label="Confirm order now" loading={busy} onPress={() => { void confirmSalesOrder(); }} /><Button label="Keep as draft" disabled={busy} variant="secondary" onPress={() => setConfirmingOrder(false)} /></View> : null}
     {confirm ? <View style={styles.section}><Text>{resource === 'orders' ? 'Confirm cancelling this draft? It cannot be reopened.' : 'Confirm changing this record’s active status?'}</Text><Button label={resource === 'orders' ? 'Confirm cancellation' : 'Confirm status change'} loading={busy} onPress={() => { void toggle(); }} /><Button label="Keep current state" disabled={busy} variant="secondary" onPress={() => setConfirm(false)} /></View> : null}
   </Card>;
 }

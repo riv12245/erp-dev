@@ -98,4 +98,25 @@ describe('Draft sales orders through HTTP and a real replica set', () => {
     finally { spy.mockRestore(); }
     expect(await orderModel(h.conn).countDocuments({ idempotencyKey: body.idempotencyKey })).toBe(0);
   });
+  it('confirms a draft order, deducting stock from warehouse, and prevents double confirmation', async () => {
+    const { InventoryService } = await import('../src/modules/inventory/index.js');
+    const inventory = new InventoryService(h.conn);
+    await inventory.recordMovement(scope, {
+      productId: itemId, warehouseId, type: 'inbound', quantity: 10,
+      reason: 'Initial stock for sales test', idempotencyKey: randomUUID()
+    });
+    const order = await create({ ...input(), lines: [{ itemId, quantity: 2, unitPrice: 10 }] });
+    expect(order.status).toBe('DRAFT');
+    expect((await inventory.getAvailability(scope, itemId, warehouseId)).onHand).toBe(10);
+    const confirmRes = await apiRequest(h.baseUrl, `${path}/${order.orderId}/confirm`, {
+      method: 'POST', headers, body: { expectedVersion: 1 }
+    });
+    expect(confirmRes.status).toBe(200);
+    expect(confirmRes.body.data.status).toBe('CONFIRMED');
+    expect((await inventory.getAvailability(scope, itemId, warehouseId)).onHand).toBe(8);
+    const secondConfirm = await apiRequest(h.baseUrl, `${path}/${order.orderId}/confirm`, {
+      method: 'POST', headers, body: { expectedVersion: 2 }
+    });
+    expect(secondConfirm.status).toBe(409);
+  });
 });
