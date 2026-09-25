@@ -27,11 +27,17 @@ export function assertBalancedJournal(lines: readonly JournalLine[]): void {
   }
 }
 
+import { registerFinanceRoutes as registerObligationRoutes } from './presentation/finance-routes.js';
+
+export { FinanceService } from './application/finance-service.js';
+export type { FinancialObligationDTO, FinancialPaymentDTO } from '@erp/contracts/finance';
+
 export const FinanceModule = { id: 'finance', displayName: 'Finance' } as const;
 
 export function registerFinanceRoutes(router: Router): void {
+  registerObligationRoutes(router);
   router.get('/finance/health', asyncHandler(async (_req: Request, res: Response) => {
     const conn = getConnection();
-    ok(res, { module: 'finance', status: 'skeleton', db: conn?.readyState === 1 ? 'up' : 'down' });
+    ok(res, { module: 'finance', status: 'active', db: conn?.readyState === 1 ? 'up' : 'down' });
   }));
 }

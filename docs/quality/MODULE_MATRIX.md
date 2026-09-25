@@ -10,6 +10,6 @@
 | **Inventario** | Funcional | Productos, Almacenes, Balances, Movimientos Idempotentes | Reservas automáticas | `inventory.*` | 18 tests |
 | **Ventas** | Funcional | Crear Borrador, Confirmar Pedido (Deducción Stock), Cancelar Borrador, Historial | Facturación fiscal | `sales.orders.*` | 8 tests |
 | **Compras** | Funcional | Proveedores Crear/Listar/Editar, Órdenes de Compra, Recepción de Mercancía e Ingreso a Almacén | Facturación de Proveedores | `purchasing.suppliers.*` | 10 tests |
-| **Finanzas** | Estructura | Pantalla de aviso "En preparación", Contratos iniciales | Cuentas por Cobrar/Pagar, Pagos reales | `finance.*` | Contratos |
+| **Finanzas** | Funcional | Cuentas por Cobrar (AR), Cuentas por Pagar (AP), Registro de Pagos con liquidación parcial/total, Consultas | Facturación fiscal | `finance.*` | 2 tests |
 | **Producción** | Estructura | Contratos iniciales | Órdenes de Producción, Listas de Materiales | `production.*` | Pendiente |
 | **Logística** | Estructura | Contratos iniciales | Despacho y Seguimiento de Guías | `logistics.*` | Pendiente |
